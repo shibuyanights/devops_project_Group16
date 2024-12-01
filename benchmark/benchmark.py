@@ -183,3 +183,7 @@ class Python_Game_Server(Game_Server):
 
     def apply_action(self, action: Any) -> None:
         self.game.apply_action(action)
+
+
+# Danijel test
+
