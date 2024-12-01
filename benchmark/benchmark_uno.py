@@ -16,9 +16,7 @@ sys.path += '../'
 
 from server.py.uno import Card, Action, PlayerState, GameState, GamePhase
 
-
 LIST_COLOR = ['red', 'blue', 'yellow', 'green']
-
 
 
 class UnoBenchmark(benchmark.Benchmark):
@@ -856,10 +854,7 @@ class UnoBenchmark(benchmark.Benchmark):
         hint += f'Error: Wrong phase. Should be "{GamePhase.FINISHED}"".\n'
         assert state.phase == GamePhase.FINISHED, hint
 
-
     # --- helper functions ---
-
-
 
     def get_list_action_as_str(self, list_action):
         line = ''
@@ -879,8 +874,5 @@ if __name__ == '__main__':
         print("  or python benchmark_dog.py remote [host:port]")
         sys.exit()
 
-    #os.environ["DISABLED_FEATURES"] = 'test_draw_1'
-
     benchmark = UnoBenchmark(argv=sys.argv)
     benchmark.run_tests(disable_features=False)
-

@@ -76,13 +76,12 @@ class GameState(BaseModel):
     cnt_player: int = 4                # number of players (must be 4)
     phase: GamePhase                   # current phase of the game
     cnt_round: int                     # current round
-    bool_game_finished: bool           # true if game has finished
     bool_card_exchanged: bool          # true if cards was exchanged in round
     idx_player_started: int            # index of player that started the round
     idx_player_active: int             # index of active player in round
     list_player: List[PlayerState]     # list of players
-    list_id_card_draw: List[Card]      # list of cards to draw
-    list_id_card_discard: List[Card]   # list of cards discarded
+    list_card_draw: List[Card]         # list of cards to draw
+    list_card_discard: List[Card]      # list of cards discarded
     card_active: Optional[Card]        # active card (for 7 and JKR with sequence of actions)
 
 
