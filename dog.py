@@ -4,6 +4,8 @@ from pydantic import BaseModel
 import random
 
 
+#test jenu
+
 class Card(BaseModel):
     suit: str  # card suit (color)
     rank: str  # card rank
