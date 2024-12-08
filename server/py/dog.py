@@ -122,9 +122,7 @@ class Dog(Game):
         self.state.phase = GamePhase.RUNNING
 
     def deal_cards(self) -> None:
-        """
-        Distribute cards to all players.
-        """
+        """Distribute cards to all players."""
         num_cards = 6 - (self.state.cnt_round - 1) % 5  # Calculate the number of cards to deal
         print(f"Dealing {num_cards} cards to each player in round {self.state.cnt_round}.")
 
@@ -148,37 +146,23 @@ class Dog(Game):
         print(f"After dealing: {len(self.state.list_card_draw)} cards remain in the draw pile.")
         print(f"Discard pile size: {len(self.state.list_card_discard)}")
 
-    def start_new_round(self) -> None:
-        """
-        Start a new round and deal cards again.
-        """
-        if self.state.bool_game_finished:
-            raise ValueError("Cannot start a new round; the game is already finished.")
-
-        self.state.cnt_round += 1  # Increment the round
-        self.state.bool_card_exchanged = False  # Reset card exchange status
-        self.state.idx_player_active = self.state.idx_player_started  # Reset active player index
-
-        print(f"Starting round {self.state.cnt_round}...")
-        self.deal_cards()  # Deal cards for the new round
-
-        # Verify that all players have the correct number of cards
-        expected_cards = 6 - (self.state.cnt_round - 1) % 5
-        for i, player in enumerate(self.state.list_player):
-            if len(player.list_card) != expected_cards:
-                print(f"Error: Player {i+1} has {len(player.list_card)} cards, expected {expected_cards}.")
-                raise AssertionError(
-                    f"Player {i+1} has {len(player.list_card)} cards, expected {expected_cards}."
-                )
-
     def apply_action(self, action: Optional[Action]) -> None:
-        """ Apply the given action to the game """
+        """Apply the given action to the game."""
         if action is None:
             print("No action provided. Skipping this turn.")
             return
 
         player = self.state.list_player[self.state.idx_player_active]
 
+        # Handle JOKER swap action
+        if action.card.rank == 'JKR' and action.card_swap:
+            self.state.card_active = action.card_swap  # Set card_active to the swapped card
+            player.list_card.remove(action.card)  # Remove the JOKER from the player's hand
+            self.state.list_card_discard.append(action.card)  # Add the JOKER to the discard pile
+            print(f"JOKER swapped for {action.card_swap.rank} of {action.card_swap.suit}.")
+            return
+
+        # Handle other actions
         if action.card in player.list_card:
             if action.pos_from == -1 and action.pos_to is not None:  # -1 for Kennel
                 marble = next(m for m in player.list_marble if m.pos == -1)
@@ -187,6 +171,7 @@ class Dog(Game):
             elif action.pos_from is not None and action.pos_to is not None:
                 marble = next(m for m in player.list_marble if m.pos == action.pos_from)
                 marble.pos = action.pos_to
+            self.state.card_active = action.card  # Update card_active
             player.list_card.remove(action.card)
             self.state.list_card_discard.append(action.card)
 
@@ -197,70 +182,56 @@ class Dog(Game):
 
         for card in player.list_card:
             if card.rank == 'JKR':
-                # Add move action for the JOKER card
                 actions.append(Action(card=card, pos_from=64, pos_to=0))
-
-                # Add swap actions with 'A' and 'K' for each suit
-                for suit in LIST_SUIT:
-                    actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='A')))
-                    actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='K')))
+                if self.state.cnt_round == 0:
+                    for suit in LIST_SUIT:
+                        actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='A')))
+                        actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='K')))
+                else:
+                    for suit in LIST_SUIT:
+                        for rank in LIST_RANK[:-1]:  # Exclude 'JKR'
+                            actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank=rank)))
             else:
-                # Handle other card actions if applicable
                 for marble in player.list_marble:
-                    if marble.pos == -1 and card.rank in ['A', 'K']:  # From kennel to board
+                    if marble.pos == -1 and card.rank in ['A', 'K']:
                         actions.append(Action(card=card, pos_from=-1, pos_to=0))
-                    elif marble.pos >= 0 and card.rank.isdigit():  # Move on the board
+                    elif marble.pos >= 0 and card.rank.isdigit():
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
-        # Sort actions for consistency (matching the test expectations)
-        actions = sorted(
-            actions,
-            key=lambda action: (
-                LIST_RANK.index(action.card.rank),
-                action.card.suit,
-                action.pos_from if action.pos_from is not None else -1,
-                action.pos_to if action.pos_to is not None else -1
-            )
-        )
-
-        # Remove duplicates or invalid actions (if needed, based on test case rules)
         actions = self.remove_invalid_actions(actions)
+        actions = sorted(actions, key=lambda action: (
+            LIST_RANK.index(action.card.rank),
+            action.card.suit,
+            action.pos_from if action.pos_from is not None else -1,
+            action.pos_to if action.pos_to is not None else -1
+        ))
         return actions
 
     def remove_invalid_actions(self, actions: List[Action]) -> List[Action]:
         """Remove duplicate or invalid actions."""
-        unique_actions = set()  # Use a set to store unique actions
+        unique_actions = set()
         valid_actions = []
         for action in actions:
-            # Ensure the action is unique and valid
             if action not in unique_actions:
                 unique_actions.add(action)
                 valid_actions.append(action)
         return valid_actions
 
-
-
-
-
-
-
-
-
     def get_player_view(self, idx_player: int) -> GameState:
-        """ Get the masked state for the active player """
+        """Get the masked state for the active player."""
         return self.state
 
     def set_state(self, state: GameState) -> None:
-        """ Set the game to a given state """
+        """Set the game to a given state."""
         self.state = state
 
     def get_state(self) -> GameState:
-        """ Get the complete, unmasked game state """
+        """Get the complete, unmasked game state."""
         return self.state
 
     def print_state(self) -> None:
-        """ Print the current game state """
+        """Print the current game state."""
         print(f"Phase: {self.state.phase}")
         print(f"Round: {self.state.cnt_round}")
         for player in self.state.list_player:
