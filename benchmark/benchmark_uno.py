@@ -102,9 +102,9 @@ class UnoBenchmark(benchmark.Benchmark):
                 assert self.is_card_valid(card), hint
 
     def test_list_action_card_matching_1(self):
-        """Test 003: Test player card matching with discard pile card - simple cards [2 points]"""
+        """Test 003: Test player card matching with discard pile card - simple cards [3 points]"""
 
-        for color in LIST_COLOR:
+        for c, color in enumerate(LIST_COLOR):
 
             for number in range(10):
 
@@ -113,29 +113,39 @@ class UnoBenchmark(benchmark.Benchmark):
                 idx_player_active = 0
 
                 list_card_draw = []
-                for color in LIST_COLOR:
-                    for number in range(10):
-                        card = Card(color=color, number=number, symbol=None)
+                for color2 in LIST_COLOR:
+                    for number2 in range(10):
+                        card = Card(color=color2, number=number2, symbol=None)
                         list_card_draw.append(card)
-                card = Card(color=color, number=number, symbol=None)
-                list_card_draw.append(card)
+
+                card1 = Card(color=color, number=number, symbol=None)                               # same color, same number
+                card2 = Card(color=color, number=(number + 1) % 10, symbol=None)                    # same color, different number
+                card3 = Card(color=LIST_COLOR[(c + 1) % 4], number=number, symbol=None)             # different color, same number
+                card4 = Card(color=LIST_COLOR[(c + 1) % 4], number=(number + 1) % 10, symbol=None)  # different color, different number
+                list_card_discard = [card1]
 
                 state = GameState(
                     cnt_player=2,
                     idx_player_active=idx_player_active,
-                    list_card_draw=list_card_draw
+                    list_card_draw=list_card_draw,
+                    list_card_discard=list_card_discard,
+                    color=card1.color
                 )
                 self.game_server.set_state(state)
                 state = self.game_server.get_state()
                 player = state.list_player[idx_player_active]
-                player.list_card = [card]
+                player.list_card = [card1, card2, card3, card4]
                 self.game_server.set_state(state)
                 state = self.game_server.get_state()
                 str_state = f'GameState:\n{state}\n'
 
                 list_action_found = self.game_server.get_list_action()
                 list_action_expected = []
-                action = Action(card=card, color=color, draw=None)
+                action = Action(card=card1, color=card1.color, draw=None)
+                list_action_expected.append(action)
+                action = Action(card=card2, color=card2.color, draw=None)
+                list_action_expected.append(action)
+                action = Action(card=card3, color=card3.color, draw=None)
                 list_action_expected.append(action)
                 action = Action(card=None, color=None, draw=1)
                 list_action_expected.append(action)
@@ -149,44 +159,55 @@ class UnoBenchmark(benchmark.Benchmark):
                 assert sorted(list_action_found) == sorted(list_action_expected), hint
 
     def test_list_action_card_matching_2(self):
-        """Test 004: Test player card matching with discard pile card - special cards [2 points]"""
+        """Test 004: Test player card matching with discard pile card - special cards [3 points]"""
 
-        for color in LIST_COLOR:
+        LIST_SYMBOL = ['skip', 'reverse', 'draw2']
 
-            for symbol in ['skip', 'reverse', 'draw2']:
+        for c, color in enumerate(LIST_COLOR):
+
+            for s, symbol in enumerate(LIST_SYMBOL):
 
                 self.game_server.reset()
 
                 idx_player_active = 0
 
                 list_card_draw = []
-                for color in LIST_COLOR:
-                    for number in range(10):
-                        card = Card(color=color, number=number, symbol=None)
+                for color2 in LIST_COLOR:
+                    for number2 in range(10):
+                        card = Card(color=color2, number=number2, symbol=None)
                         list_card_draw.append(card)
-                card = Card(color=color, number=None, symbol=symbol)
-                list_card_draw.append(card)
-                list_card_discard = [card]
+
+                card1 = Card(color=color, number=None, symbol=symbol)                                      # same color, same symbol
+                card2 = Card(color=color, number=None, symbol=LIST_SYMBOL[(s + 1) % 3])                    # same color, different symbol
+                card3 = Card(color=LIST_COLOR[(c + 1) % 4], number=None, symbol=symbol)                    # different color, same symbol
+                card4 = Card(color=LIST_COLOR[(c + 1) % 4], number=None, symbol=LIST_SYMBOL[(s + 1) % 3])  # different color, different symbol
+                list_card_discard = [card1]
 
                 state = GameState(
                     cnt_player=2,
                     idx_player_active=idx_player_active,
                     list_card_draw=list_card_draw,
                     list_card_discard=list_card_discard,
-                    color=card.color
+                    color=card1.color
                 )
                 self.game_server.set_state(state)
                 state = self.game_server.get_state()
                 player = state.list_player[idx_player_active]
-                player.list_card = [card]
+                player.list_card = [card1, card2, card3, card4]
                 self.game_server.set_state(state)
                 state = self.game_server.get_state()
                 str_state = f'GameState:\n{state}\n'
 
                 list_action_found = self.game_server.get_list_action()
                 list_action_expected = []
-                draw = 2 if symbol == 'draw2' else None
-                action = Action(card=card, color=color, draw=draw)
+                draw = 2 if card1.symbol == 'draw2' else None
+                action = Action(card=card1, color=card1.color, draw=draw)
+                list_action_expected.append(action)
+                draw = 2 if card2.symbol == 'draw2' else None
+                action = Action(card=card2, color=card2.color, draw=draw)
+                list_action_expected.append(action)
+                draw = 2 if card3.symbol == 'draw2' else None
+                action = Action(card=card3, color=card3.color, draw=draw)
                 list_action_expected.append(action)
                 action = Action(card=None, color=None, draw=1)
                 list_action_expected.append(action)
@@ -875,4 +896,10 @@ if __name__ == '__main__':
         sys.exit()
 
     benchmark = UnoBenchmark(argv=sys.argv)
-    benchmark.run_tests(disable_features=False)
+
+    if True:  # Run all tests
+        benchmark.run_tests()
+
+    else:  # Run specific test(s)
+        benchmark.test_list_action_card_matching_1()
+        benchmark.test_list_action_card_matching_2()
