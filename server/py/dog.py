@@ -1,5 +1,4 @@
 from __future__ import annotations  # Enables forward references for type hints
-from functools import total_ordering
 from server.py.game import Game, Player
 from typing import List, Optional, ClassVar
 from pydantic import BaseModel
@@ -15,8 +14,8 @@ LIST_RANK = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '
 
 
 class Card(BaseModel):
-    suit: str  # Card suit (color)
-    rank: str  # Card rank
+    suit: str  # card suit (color)
+    rank: str  # card rank
 
     def __lt__(self, other: Card) -> bool:
         """Implement comparison for sorting: first by suit, then by rank."""
@@ -27,7 +26,6 @@ class Card(BaseModel):
     def __eq__(self, other: Card) -> bool:
         """Equality comparison for Card objects."""
         return self.suit == other.suit and self.rank == other.rank
-
 
 
 
@@ -178,18 +176,23 @@ class Dog(Game):
 
         for card in player.list_card:
             if card.rank == 'JKR':
-                # Add specific Joker actions:
+                # Add move action for the JOKER card
                 actions.append(Action(card=card, pos_from=64, pos_to=0))
-                for target_card in [Card(suit='♥', rank='A'), Card(suit='♥', rank='K')]:
-                    actions.append(Action(card=card, pos_from=-1, pos_to=-1, card_swap=target_card))
+
+                # Add swap actions with 'A' and 'K' for each suit
+                for suit in LIST_SUIT:
+                    actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='A')))
+                    actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='K')))
             else:
+                # Handle other card actions if applicable
                 for marble in player.list_marble:
-                    if marble.pos == -1 and card.rank in ['A', 'K']:
+                    if marble.pos == -1 and card.rank in ['A', 'K']:  # From kennel to board
                         actions.append(Action(card=card, pos_from=-1, pos_to=0))
-                    elif marble.pos >= 0 and card.rank.isdigit():
+                    elif marble.pos >= 0 and card.rank.isdigit():  # Move on the board
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
+        # Sort actions for consistency (matching the test expectations)
         actions = sorted(
             actions,
             key=lambda action: (
@@ -199,7 +202,10 @@ class Dog(Game):
                 action.pos_to if action.pos_to is not None else -1
             )
         )
-        return actions[:3]
+        return actions
+
+
+
 
 
 
@@ -237,3 +243,4 @@ if __name__ == '__main__':
     game = Dog()
     game.start_new_round()  # Start a new round for testing
     game.print_state()
+
