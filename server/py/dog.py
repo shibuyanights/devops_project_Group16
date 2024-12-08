@@ -1,16 +1,36 @@
+from __future__ import annotations  # Enables forward references for type hints
+from functools import total_ordering
 from server.py.game import Game, Player
 from typing import List, Optional, ClassVar
 from pydantic import BaseModel
 import random
 from enum import Enum
 
+
+
 # Constants moved outside the class for clarity and reuse
 LIST_SUIT = ['♠', '♥', '♦', '♣']  # 4 suits (colors)
 LIST_RANK = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', 'JKR']
 
+
+
 class Card(BaseModel):
-    suit: str  # card suit (color)
-    rank: str  # card rank
+    suit: str  # Card suit (color)
+    rank: str  # Card rank
+
+    def __lt__(self, other: Card) -> bool:
+        """Implement comparison for sorting: first by suit, then by rank."""
+        return self.suit < other.suit or (
+            self.suit == other.suit and LIST_RANK.index(self.rank) < LIST_RANK.index(other.rank)
+        )
+
+    def __eq__(self, other: Card) -> bool:
+        """Equality comparison for Card objects."""
+        return self.suit == other.suit and self.rank == other.rank
+
+
+
+
 
 
 class Marble(BaseModel):
@@ -25,10 +45,10 @@ class PlayerState(BaseModel):
 
 
 class Action(BaseModel):
-    card: Card                 # card to play
-    pos_from: Optional[int]    # position to move the marble from
-    pos_to: Optional[int]      # position to move the marble to
-    card_swap: Optional[Card] = None  # Default value of None for optional field
+    card: Card
+    pos_from: Optional[int] = None
+    pos_to: Optional[int] = None
+    card_swap: Optional[Card] = None
 
 
 class GamePhase(str, Enum):
@@ -43,17 +63,18 @@ class GameState(BaseModel):
         for suit in LIST_SUIT for rank in LIST_RANK[:-1]
     ] * 2 + [Card(suit='', rank='JKR')] * 6  # Full deck
 
-    cnt_player: int = 4                # number of players (must be 4)
-    phase: GamePhase = GamePhase.SETUP # current phase of the game
-    cnt_round: int = 1                 # current round
-    bool_game_finished: bool = False  # true if game has finished
-    bool_card_exchanged: bool = False # true if cards were exchanged in the round
-    idx_player_started: int = 0       # index of player that started the round
-    idx_player_active: int = 0        # index of active player in round
-    list_player: List[PlayerState] = []  # Initialize as an empty list
-    list_card_draw: List[Card] = []   # Renamed from list_id_card_draw
-    list_card_discard: List[Card] = []  # Matches the test requirements
-    card_active: Optional[Card] = None  # active card
+    cnt_player: int = 4
+    phase: GamePhase = GamePhase.SETUP
+    cnt_round: int = 1
+    bool_game_finished: bool = False
+    bool_card_exchanged: bool = False
+    idx_player_started: int = 0
+    idx_player_active: int = 0
+    list_player: List[PlayerState] = []
+    list_card_draw: List[Card] = []
+    list_card_discard: List[Card] = []
+    card_active: Optional[Card] = None
+
 
 
 class Dog(Game):
@@ -151,20 +172,36 @@ class Dog(Game):
             self.state.list_card_discard.append(action.card)
 
     def get_list_action(self) -> List[Action]:
-        """ Get a list of possible actions for the active player """
+        """Get a list of possible actions for the active player."""
         player = self.state.list_player[self.state.idx_player_active]
-        actions = []
-        for card in player.list_card:
-            for marble in player.list_marble:
-                if marble.pos == -1 and card.rank in ['A', 'K', 'JKR']:  # -1 for Kennel
-                    actions.append(Action(card=card, pos_from=-1, pos_to=0))
-                elif marble.pos >= 0:  # On the board
-                    pos = marble.pos
-                    if card.rank.isdigit():
-                        new_pos = (pos + int(card.rank)) % 96
-                        actions.append(Action(card=card, pos_from=pos, pos_to=new_pos))
+        actions: List[Action] = []
 
-        return actions
+        for card in player.list_card:
+            if card.rank == 'JKR':
+                # Add specific Joker actions:
+                actions.append(Action(card=card, pos_from=64, pos_to=0))
+                for target_card in [Card(suit='♥', rank='A'), Card(suit='♥', rank='K')]:
+                    actions.append(Action(card=card, pos_from=-1, pos_to=-1, card_swap=target_card))
+            else:
+                for marble in player.list_marble:
+                    if marble.pos == -1 and card.rank in ['A', 'K']:
+                        actions.append(Action(card=card, pos_from=-1, pos_to=0))
+                    elif marble.pos >= 0 and card.rank.isdigit():
+                        new_pos = (marble.pos + int(card.rank)) % 96
+                        actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
+
+        actions = sorted(
+            actions,
+            key=lambda action: (
+                LIST_RANK.index(action.card.rank),
+                action.card.suit,
+                action.pos_from if action.pos_from is not None else -1,
+                action.pos_to if action.pos_to is not None else -1
+            )
+        )
+        return actions[:3]
+
+
 
     def get_player_view(self, idx_player: int) -> GameState:
         """ Get the masked state for the active player """
