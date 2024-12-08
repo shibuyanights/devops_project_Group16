@@ -14,7 +14,7 @@ class Card(BaseModel):
 
 
 class Marble(BaseModel):
-    pos: str       # position on board (0 to 95)
+    pos: int       # position on board (-1 for Kennel, 0 to 95 for board positions)
     is_save: bool  # true if marble was moved out of kennel and was not yet moved
 
 
@@ -26,8 +26,8 @@ class PlayerState(BaseModel):
 
 class Action(BaseModel):
     card: Card                 # card to play
-    pos_from: Optional[str]    # position to move the marble from
-    pos_to: Optional[str]      # position to move the marble to
+    pos_from: Optional[int]    # position to move the marble from
+    pos_to: Optional[int]      # position to move the marble to
     card_swap: Optional[Card] = None  # Default value of None for optional field
 
 
@@ -64,7 +64,7 @@ class Dog(Game):
                 PlayerState(
                     name=f"Player {i+1}",
                     list_card=[],
-                    list_marble=[Marble(pos='K', is_save=False) for _ in range(4)]
+                    list_marble=[Marble(pos=-1, is_save=False) for _ in range(4)]  # -1 for Kennel
                 ) for i in range(4)
             ],
             list_card_draw=random.sample(GameState.LIST_CARD, len(GameState.LIST_CARD)),
@@ -131,7 +131,6 @@ class Dog(Game):
                     f"Player {i+1} has {len(player.list_card)} cards, expected {expected_cards}."
                 )
 
-
     def apply_action(self, action: Optional[Action]) -> None:
         """ Apply the given action to the game """
         if action is None:
@@ -141,13 +140,13 @@ class Dog(Game):
         player = self.state.list_player[self.state.idx_player_active]
 
         if action.card in player.list_card:
-            if action.pos_from == 'K' and action.pos_to is not None:
-                marble = next(m for m in player.list_marble if m.pos == 'K')
-                marble.pos = str(action.pos_to)
+            if action.pos_from == -1 and action.pos_to is not None:  # -1 for Kennel
+                marble = next(m for m in player.list_marble if m.pos == -1)
+                marble.pos = action.pos_to
                 marble.is_save = True
             elif action.pos_from is not None and action.pos_to is not None:
                 marble = next(m for m in player.list_marble if m.pos == action.pos_from)
-                marble.pos = str(action.pos_to)
+                marble.pos = action.pos_to
             player.list_card.remove(action.card)
             self.state.list_card_discard.append(action.card)
 
@@ -157,13 +156,13 @@ class Dog(Game):
         actions = []
         for card in player.list_card:
             for marble in player.list_marble:
-                if marble.pos == 'K' and card.rank in ['A', 'K', 'JKR']:
-                    actions.append(Action(card=card, pos_from='K', pos_to='0'))
-                elif isinstance(marble.pos, str) and marble.pos.isdigit():
-                    pos = int(marble.pos)
+                if marble.pos == -1 and card.rank in ['A', 'K', 'JKR']:  # -1 for Kennel
+                    actions.append(Action(card=card, pos_from=-1, pos_to=0))
+                elif marble.pos >= 0:  # On the board
+                    pos = marble.pos
                     if card.rank.isdigit():
-                        new_pos = str((pos + int(card.rank)) % 96)
-                        actions.append(Action(card=card, pos_from=str(pos), pos_to=new_pos))
+                        new_pos = (pos + int(card.rank)) % 96
+                        actions.append(Action(card=card, pos_from=pos, pos_to=new_pos))
 
         return actions
 
