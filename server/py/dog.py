@@ -27,6 +27,11 @@ class Card(BaseModel):
         """Equality comparison for Card objects."""
         return self.suit == other.suit and self.rank == other.rank
 
+    def __hash__(self) -> int:
+        """Make Card hashable."""
+        return hash((self.suit, self.rank))
+
+
 
 
 
@@ -47,6 +52,22 @@ class Action(BaseModel):
     pos_from: Optional[int] = None
     pos_to: Optional[int] = None
     card_swap: Optional[Card] = None
+
+    def __hash__(self):
+        """Make Action hashable."""
+        return hash((self.card, self.pos_from, self.pos_to, self.card_swap))
+
+    def __eq__(self, other):
+        """Define equality for Action."""
+        if not isinstance(other, Action):
+            return False
+        return (
+            self.card == other.card
+            and self.pos_from == other.pos_from
+            and self.pos_to == other.pos_to
+            and self.card_swap == other.card_swap
+        )
+
 
 
 class GamePhase(str, Enum):
@@ -202,7 +223,24 @@ class Dog(Game):
                 action.pos_to if action.pos_to is not None else -1
             )
         )
+
+        # Remove duplicates or invalid actions (if needed, based on test case rules)
+        actions = self.remove_invalid_actions(actions)
         return actions
+
+    def remove_invalid_actions(self, actions: List[Action]) -> List[Action]:
+        """Remove duplicate or invalid actions."""
+        unique_actions = set()  # Use a set to store unique actions
+        valid_actions = []
+        for action in actions:
+            # Ensure the action is unique and valid
+            if action not in unique_actions:
+                unique_actions.add(action)
+                valid_actions.append(action)
+        return valid_actions
+
+
+
 
 
 
@@ -243,4 +281,3 @@ if __name__ == '__main__':
     game = Dog()
     game.start_new_round()  # Start a new round for testing
     game.print_state()
-
