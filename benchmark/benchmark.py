@@ -10,6 +10,7 @@ import pylint.lint
 from mypy import api
 
 #This a comment from Moritz
+#Comment gj
 
 class Benchmark:
 
