@@ -170,6 +170,13 @@ class Dog(Game):
                 marble = next(m for m in player.list_marble if m.pos == -1)
                 marble.pos = action.pos_to
                 marble.is_save = True
+                # GJ Check for opponent marble at the same position and send it to kennel (pos=72)
+                for op in self.state.list_player:
+                    if op is not player:
+                        for om in op.list_marble:
+                            if om.pos == action.pos_to:
+                                om.pos = 72
+                                om.is_save = False
             elif action.pos_from is not None and action.pos_to is not None:  # Normal move
                 marble = next(m for m in player.list_marble if m.pos == action.pos_from)
                 marble.pos = action.pos_to
