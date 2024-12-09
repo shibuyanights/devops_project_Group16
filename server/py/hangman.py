@@ -1,15 +1,15 @@
 from typing import List, Optional
 import random
 from enum import Enum
-from server.py.game import Game, Player
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class GuessLetterAction:
     def __init__(self, letter: str) -> None:
-        self.letter = letter.upper()
-
-    def __repr__(self):
-        return f"GuessLetterAction(letter={self.letter})"
+        self.letter = letter.upper()  # Convert to uppercase
+        logging.debug(f"GuessLetterAction initialized with letter: {self.letter}")
 
 
 class GamePhase(str, Enum):
@@ -20,7 +20,7 @@ class GamePhase(str, Enum):
 
 class HangmanGameState:
     def __init__(self, word_to_guess: str, phase: GamePhase, guesses: List[str], incorrect_guesses: List[str]) -> None:
-        self.word_to_guess = word_to_guess.upper()
+        self.word_to_guess = word_to_guess.upper()  # Ensure word is uppercase
         self.phase = phase
         self.guesses = guesses
         self.incorrect_guesses = incorrect_guesses
@@ -34,7 +34,7 @@ class HangmanGameState:
         return len(self.incorrect_guesses) >= 8
 
 
-class Hangman(Game):
+class Hangman:
     def __init__(self) -> None:
         """ Initialize the game with no state """
         self._state: Optional[HangmanGameState] = None
@@ -70,19 +70,30 @@ class Hangman(Game):
         """ Apply the guessed letter to the game """
         if not self._state:
             raise ValueError("Game state has not been set!")
+        
         guessed_letter = action.letter
+        logging.debug(f"Applying action with letter: {guessed_letter}")
+        logging.debug(f"Word to guess: {self._state.word_to_guess}")
+        logging.debug(f"Current guesses: {self._state.guesses}")
+        logging.debug(f"Incorrect guesses: {self._state.incorrect_guesses}")
+
         if guessed_letter in self._state.guesses or guessed_letter in self._state.incorrect_guesses:
-            return  # Letter already guessed
+            logging.debug(f"Letter '{guessed_letter}' has already been guessed.")
+            return
 
         if guessed_letter in self._state.word_to_guess:
+            logging.debug(f"Letter '{guessed_letter}' is in the word.")
             self._state.guesses.append(guessed_letter)
         else:
+            logging.debug(f"Letter '{guessed_letter}' is not in the word.")
             self._state.incorrect_guesses.append(guessed_letter)
 
-        # Check if the game should end
+        # Check for game end conditions
         if self._state.is_word_guessed():
+            logging.debug("The word has been guessed. Ending the game.")
             self._state.phase = GamePhase.FINISHED
         elif self._state.has_max_incorrect_guesses():
+            logging.debug("Maximum incorrect guesses reached. Ending the game.")
             self._state.phase = GamePhase.FINISHED
 
     def get_player_view(self, idx_player: int) -> HangmanGameState:
@@ -90,7 +101,7 @@ class Hangman(Game):
         return self.get_state()
 
 
-class RandomPlayer(Player):
+class RandomPlayer:
     def select_action(self, state: HangmanGameState, actions: List[GuessLetterAction]) -> Optional[GuessLetterAction]:
         """ Select a random action from the available actions """
         if actions:
@@ -115,4 +126,3 @@ if __name__ == "__main__":
 
     # End of the game
     print("Game Over!")
-
