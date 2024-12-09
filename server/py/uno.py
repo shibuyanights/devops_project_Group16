@@ -27,10 +27,18 @@ class Action(BaseModel):
     uno: bool = False  # true to announce "UNO" with the second last card
 
     def __lt__(self, other):
-        # Sorting for comparisons in tests
+        # Safely compare Actions, accounting for None values
         return (
-            (self.card.color, self.card.number, self.card.symbol, self.draw, self.uno)
-            < (other.card.color, other.card.number, other.card.symbol, other.draw, other.uno)
+            (self.card.color if self.card else "", 
+             self.card.number if self.card else -1, 
+             self.card.symbol if self.card else "",
+             self.draw or 0, 
+             self.uno)
+            < (other.card.color if other.card else "", 
+               other.card.number if other.card else -1, 
+               other.card.symbol if other.card else "",
+               other.draw or 0, 
+               other.uno)
         )
 
 
@@ -59,6 +67,7 @@ class GameState(BaseModel):
     color: str = None  # active color
     cnt_to_draw: int = 0  # accumulated cards to draw
     has_drawn: bool = False  # if the current player has drawn a card
+    missed_uno_penalty: int = 4  # cards drawn for missing UNO call
 
 
 class RandomPlayer(Player):
@@ -100,7 +109,7 @@ class Uno(Game):
                         self.state.direction *= -1
                     elif card.symbol == "skip":
                         self.state.idx_player_active = (
-                            self.state.idx_player_active + 1
+                            (self.state.idx_player_active or 0) + 1
                         ) % self.state.cnt_player
                     elif card.symbol == "draw2":
                         self.state.cnt_to_draw += 2
@@ -173,6 +182,13 @@ class Uno(Game):
                 self.state.cnt_to_draw += 2
             elif card.symbol == "wilddraw4":
                 self.state.cnt_to_draw += 4
+
+            # Check for UNO penalty
+            if len(self.state.list_player[self.state.idx_player_active].list_card) == 1 and not action.uno:
+                for _ in range(self.state.missed_uno_penalty):
+                    if self.state.list_card_draw:
+                        card = self.state.list_card_draw.pop()
+                        self.state.list_player[self.state.idx_player_active].list_card.append(card)
 
         # Check if the game is finished
         if not self.state.list_player[self.state.idx_player_active].list_card:
