@@ -1,15 +1,18 @@
 from typing import List, Optional
+import string
 import random
 from enum import Enum
-import logging
+from pydantic import BaseModel, field_validator
+from server.py.game import Game, Player
 
-logging.basicConfig(level=logging.DEBUG)
 
+class GuessLetterAction(BaseModel):
+    letter: str
 
-class GuessLetterAction:
-    def __init__(self, letter: str) -> None:
-        self.letter = letter.upper()  # Convert to uppercase
-        logging.debug(f"GuessLetterAction initialized with letter: {self.letter}")
+    @field_validator("letter")
+    @classmethod
+    def uppercase(cls, value: str) -> str:
+        return value.upper()
 
 
 class GamePhase(str, Enum):
@@ -18,111 +21,156 @@ class GamePhase(str, Enum):
     FINISHED = 'finished'      # when the game is finished
 
 
-class HangmanGameState:
-    def __init__(self, word_to_guess: str, phase: GamePhase, guesses: List[str], incorrect_guesses: List[str]) -> None:
-        self.word_to_guess = word_to_guess.upper()  # Ensure word is uppercase
-        self.phase = phase
-        self.guesses = guesses
-        self.incorrect_guesses = incorrect_guesses
+class HangmanGameState(BaseModel):
+    word_to_guess: str = ""
+    phase: GamePhase = GamePhase.SETUP
+    guesses: List[str] = []
+    incorrect_guesses: List[str] = []
 
-    def is_word_guessed(self) -> bool:
-        """ Check if all letters in the word have been guessed """
-        return all(letter in self.guesses for letter in self.word_to_guess)
+    @field_validator("word_to_guess")
+    @classmethod
+    def uppercase(cls, value: str) -> str:
+        return value.upper()
 
-    def has_max_incorrect_guesses(self) -> bool:
-        """ Check if max incorrect guesses have been reached """
-        return len(self.incorrect_guesses) >= 8
+    def updateincorrect_guesses(self) -> None:
+        self.incorrect_guesses = [letter for letter in self.guesses if letter not in self.word_to_guess]
 
-
-class Hangman:
-    def __init__(self) -> None:
-        """ Initialize the game with no state """
-        self._state: Optional[HangmanGameState] = None
-
-    def get_state(self) -> HangmanGameState:
-        """ Return the current game state """
-        if not self._state:
-            raise ValueError("Game state has not been set!")
-        return self._state
-
-    def set_state(self, state: HangmanGameState) -> None:
-        """ Set the game to a specific state """
-        self._state = state
-
-    def print_state(self) -> None:
-        """ Print the current state with guessed letters revealed """
-        if not self._state:
-            raise ValueError("Game state has not been set!")
-        masked_word = ''.join(
-            [letter if letter in self._state.guesses else '_' for letter in self._state.word_to_guess]
+    def get_masked_state(self) -> "HangmanGameState":
+        if self.phase == GamePhase.FINISHED:
+            masked_word = self.word_to_guess
+        else:
+            masked_word = ''.join([letter if letter in self.guesses else '_' for letter in self.word_to_guess])
+        return HangmanGameState(
+            word_to_guess=masked_word,
+            phase=self.phase,
+            guesses=self.guesses,
+            incorrect_guesses=self.incorrect_guesses
         )
-        print(f"Word: {masked_word} | Phase: {self._state.phase} | Guesses: {self._state.guesses} | Incorrect: {self._state.incorrect_guesses}")
 
-    def get_list_action(self) -> List[GuessLetterAction]:
-        """ Get a list of unused letters as possible actions """
-        if not self._state:
-            raise ValueError("Game state has not been set!")
-        guessed_letters = set(self._state.guesses + self._state.incorrect_guesses)
-        unused_letters = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ") - guessed_letters
-        return [GuessLetterAction(letter) for letter in unused_letters]
+    def check_if_finished(self) -> None:
+        if len(set(self.word_to_guess).difference(set(self.guesses))) == 0:
+            self.phase = GamePhase.FINISHED
+        if len(set(self.guesses).difference(set(self.word_to_guess))) > 7:
+            self.phase = GamePhase.FINISHED
 
     def apply_action(self, action: GuessLetterAction) -> None:
-        """ Apply the guessed letter to the game """
-        if not self._state:
-            raise ValueError("Game state has not been set!")
-        
-        guessed_letter = action.letter
-        logging.debug(f"Applying action with letter: {guessed_letter}")
-        logging.debug(f"Word to guess: {self._state.word_to_guess}")
-        logging.debug(f"Current guesses: {self._state.guesses}")
-        logging.debug(f"Incorrect guesses: {self._state.incorrect_guesses}")
+        self.guesses.append(action.letter)
+        self.updateincorrect_guesses()
+        self.check_if_finished()
 
-        if guessed_letter in self._state.guesses or guessed_letter in self._state.incorrect_guesses:
-            logging.debug(f"Letter '{guessed_letter}' has already been guessed.")
-            return
 
-        if guessed_letter in self._state.word_to_guess:
-            logging.debug(f"Letter '{guessed_letter}' is in the word.")
-            self._state.guesses.append(guessed_letter)
+class Hangman(Game):
+
+    def __init__(self) -> None:
+        self.state = HangmanGameState()
+
+    def get_state(self) -> HangmanGameState:
+        return self.state
+
+    def set_state(self, state: HangmanGameState) -> None:
+        self.state = state
+        self.state.phase = GamePhase.RUNNING
+
+    def print_state(self) -> None:
+        state = self.state.get_masked_state()
+        print('phase:', state.phase)
+        print(' '.join(state.word_to_guess))
+        num_wrong = len(self.state.incorrect_guesses)
+        if num_wrong == 0:
+            print("\n\n\n\n\n\n _")
         else:
-            logging.debug(f"Letter '{guessed_letter}' is not in the word.")
-            self._state.incorrect_guesses.append(guessed_letter)
+            back = " "
+            left_arm = " "
+            right_arm = " "
+            left_leg = " "
+            right_leg = " "
+            if num_wrong > 2:
+                back = '|'
+            if num_wrong > 3:
+                left_arm = '/'
+            if num_wrong > 4:
+                right_arm = '\\'
+            if num_wrong > 5:
+                left_leg = "/"
+            if num_wrong > 6:
+                right_leg = "\\"
+            print(" _______")
+            print(" |/    |" if num_wrong > 7 else " |/")
+            print(" |     O" if num_wrong > 1 else " |")
+            print(f" |    {left_arm}{back}{right_arm}")
+            print(f" |    {left_leg} {right_leg}")
+            print(" |_")
+        print(f"Incorrect guesses: {' '.join(self.state.incorrect_guesses)}")
+        if self.state.phase == GamePhase.FINISHED:
+            print(f"Solution: {self.state.word_to_guess}")
 
-        # Check for game end conditions
-        if self._state.is_word_guessed():
-            logging.debug("The word has been guessed. Ending the game.")
-            self._state.phase = GamePhase.FINISHED
-        elif self._state.has_max_incorrect_guesses():
-            logging.debug("Maximum incorrect guesses reached. Ending the game.")
-            self._state.phase = GamePhase.FINISHED
+    def get_list_action(self) -> List[GuessLetterAction]:
+        if self.state.phase == GamePhase.FINISHED:
+            return []
+        all_letters = string.ascii_uppercase
+        return [GuessLetterAction(letter=letter) for letter in all_letters if letter not in self.state.guesses]
+
+    def apply_action(self, action: GuessLetterAction) -> None:
+        if self.state.phase == GamePhase.FINISHED:
+            raise ValueError("Game is finished")
+        self.state.apply_action(action)
 
     def get_player_view(self, idx_player: int) -> HangmanGameState:
-        """ Return the game state as seen by the player """
-        return self.get_state()
+        return self.state.get_masked_state()
 
 
-class RandomPlayer:
+# pylint: disable = too-few-public-methods
+class RandomPlayer(Player):
+
     def select_action(self, state: HangmanGameState, actions: List[GuessLetterAction]) -> Optional[GuessLetterAction]:
-        """ Select a random action from the available actions """
-        if actions:
+        if len(actions) > 0:
             return random.choice(actions)
         return None
 
 
+# pylint: disable = too-few-public-methods
+class StructuredPlayer(Player):
+    perfect_order = [*'ESIARNTOLCDUPMGHBYFVKWZXQJ']
+
+    def select_action(self, state: HangmanGameState, actions: List[GuessLetterAction]) -> GuessLetterAction:
+        if len(actions) == 0:
+            raise ValueError("Empty action list")
+        available_letters = [action.letter for action in actions]
+        for letter in self.perfect_order:
+            if letter in available_letters:
+                return GuessLetterAction(letter=letter)
+        return actions[0]
+
+
 if __name__ == "__main__":
-    # Initialize the game
+    # Run the main game logic
     game = Hangman()
-    game_state = HangmanGameState(word_to_guess='DevOps', phase=GamePhase.RUNNING, guesses=[], incorrect_guesses=[])
+    game_state = HangmanGameState(word_to_guess='DevOps')
     game.set_state(game_state)
+    player = StructuredPlayer()
+    for _ in range(26):
+        if game.state.phase == GamePhase.FINISHED:
+            break
+        act = player.select_action(game.get_state(), game.get_list_action())
+        game.apply_action(act)
+        game.print_state()
+        print("\n---------------------\n")
 
-    # Simulate a simple gameplay loop
-    player = RandomPlayer()
-    while game.get_state().phase == GamePhase.RUNNING:
-        possible_actions = game.get_list_action()
-        chosen_action = player.select_action(game.get_state(), possible_actions)
-        if chosen_action:
-            game.apply_action(chosen_action)
-            game.print_state()
+    # Test cases
+    print("\nRunning tests...\n")
+    test_state = HangmanGameState(word_to_guess="Python")
+    assert test_state.word_to_guess == "PYTHON", "Word should be uppercase"
+    assert test_state.phase == GamePhase.SETUP, "Initial phase should be SETUP"
 
-    # End of the game
-    print("Game Over!")
+    # Test apply_action
+    test_state.apply_action(GuessLetterAction(letter="P"))
+    assert "P" in test_state.guesses, "Guessed letter should be added to guesses"
+    assert test_state.incorrect_guesses == [], "No incorrect guesses yet"
+
+    # Test win condition
+    for letter in "YTHON":
+        test_state.apply_action(GuessLetterAction(letter=letter))
+    assert test_state.phase == GamePhase.FINISHED, "Game should be finished when word is guessed"
+    assert test_state.get_masked_state().word_to_guess == "PYTHON", "Masked word should reveal full word"
+
+    print("All tests passed!")
