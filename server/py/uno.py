@@ -26,6 +26,13 @@ class Action(BaseModel):
     draw: Optional[int] = None  # the number of cards to draw for the next player
     uno: bool = False  # true to announce "UNO" with the second last card
 
+    def __lt__(self, other):
+        # Sorting for comparisons in tests
+        return (
+            (self.card.color, self.card.number, self.card.symbol, self.draw, self.uno)
+            < (other.card.color, other.card.number, other.card.symbol, other.draw, other.uno)
+        )
+
 
 class PlayerState(BaseModel):
     name: str = None  # name of player
@@ -62,19 +69,6 @@ class RandomPlayer(Player):
         return random.choice(actions)
 
 
-class StructuredPlayer(Player):
-    def select_action(self, state: GameState, actions: List[Action]) -> Optional[Action]:
-        """Select an action strategically from the list of available actions."""
-        if not actions:
-            return None
-        for action in actions:
-            if action.uno:  # Prioritize UNO
-                return action
-            if action.card and action.card.symbol in ["draw2", "wilddraw4"]:
-                return action  # Prioritize attack cards
-        return random.choice(actions)
-
-
 class Uno(Game):
     def __init__(self):
         self.state = None
@@ -102,10 +96,19 @@ class Uno(Game):
                 if card.symbol not in ["wild", "wilddraw4"]:
                     self.state.list_card_discard.append(card)
                     self.state.color = card.color
+                    if card.symbol == "reverse":
+                        self.state.direction *= -1
+                    elif card.symbol == "skip":
+                        self.state.idx_player_active = (
+                            self.state.idx_player_active + 1
+                        ) % self.state.cnt_player
+                    elif card.symbol == "draw2":
+                        self.state.cnt_to_draw += 2
                     break
 
-        # Randomly assign an active player
-        self.state.idx_player_active = random.randint(0, self.state.cnt_player - 1)
+        # Assign an active player
+        if self.state.idx_player_active is None:
+            self.state.idx_player_active = random.randint(0, self.state.cnt_player - 1)
 
     def get_state(self):
         """Get the complete, unmasked game state."""
@@ -139,8 +142,7 @@ class Uno(Game):
 
         # Add draw action
         if not actions:
-            actions.append(Action(draw=1))
-
+            actions.append(Action(draw=max(1, self.state.cnt_to_draw)))
         return actions
 
     def apply_action(self, action: Action):
@@ -152,6 +154,7 @@ class Uno(Game):
                     card = self.state.list_card_draw.pop()
                     self.state.list_player[self.state.idx_player_active].list_card.append(card)
             self.state.has_drawn = True
+            self.state.cnt_to_draw = 0
         else:
             # Player plays a card
             card = action.card
