@@ -4,7 +4,6 @@ from enum import Enum
 import random
 import copy
 
-
 # Placeholder for Game and Player classes
 class Game:
     pass
@@ -27,19 +26,24 @@ class Action(BaseModel):
     uno: bool = False  # true to announce "UNO" with the second last card
 
     def __lt__(self, other):
-        # Safely compare Actions, accounting for None values
-        return (
-            (self.card.color if self.card else "", 
-             self.card.number if self.card else -1, 
-             self.card.symbol if self.card else "",
-             self.draw or 0, 
-             self.uno)
-            < (other.card.color if other.card else "", 
-               other.card.number if other.card else -1, 
-               other.card.symbol if other.card else "",
-               other.draw or 0, 
-               other.uno)
+        # Define a tuple for comparison, ensuring all elements are comparable
+        self_tuple = (
+            self.card.color if self.card and self.card.color else "",
+            self.card.number if self.card and self.card.number is not None else -1,
+            self.card.symbol if self.card and self.card.symbol else "",
+            self.color if self.color else "",
+            self.draw if self.draw is not None else 0,
+            self.uno
         )
+        other_tuple = (
+            other.card.color if other.card and other.card.color else "",
+            other.card.number if other.card and other.card.number is not None else -1,
+            other.card.symbol if other.card and other.card.symbol else "",
+            other.color if other.color else "",
+            other.draw if other.draw is not None else 0,
+            other.uno
+        )
+        return self_tuple < other_tuple
 
 
 class PlayerState(BaseModel):
@@ -98,6 +102,10 @@ class Uno(Game):
                 f"Mismatch between cnt_player ({self.state.cnt_player}) and number of players in list_player ({len(self.state.list_player)})."
             )
 
+        # Ensure the deck has valid cards
+        if len(self.state.list_card_draw) < self.state.cnt_player * self.state.CNT_HAND_CARDS + 1:
+            raise ValueError("Not enough cards in the draw pile to initialize the game.")
+
         # Initialize discard pile
         if not self.state.list_card_discard:
             while self.state.list_card_draw:
@@ -115,9 +123,17 @@ class Uno(Game):
                         self.state.cnt_to_draw += 2
                     break
 
+        # Fix for wilddraw4 being the first card
+        if self.state.list_card_discard and self.state.list_card_discard[-1].symbol == "wilddraw4":
+            raise ValueError("First discard card cannot be WILD DRAW 4.")
+
         # Assign an active player
         if self.state.idx_player_active is None:
             self.state.idx_player_active = random.randint(0, self.state.cnt_player - 1)
+
+        # Adjust for DRAW 2 cards on top
+        if self.state.list_card_discard and self.state.list_card_discard[-1].symbol == "draw2":
+            self.state.cnt_to_draw = 2
 
     def get_state(self):
         """Get the complete, unmasked game state."""
@@ -141,18 +157,61 @@ class Uno(Game):
 
         # Check playable cards
         for card in active_player.list_card:
+            is_valid_color = card.color == self.state.color
+            is_valid_number = card.number == top_card.number
+            is_valid_symbol = card.symbol == top_card.symbol
+            is_wild = card.color == "any"
+
+            if is_valid_color or is_valid_number or is_valid_symbol or is_wild:
+                # Special case: wilddraw4 must be played legally
+                if card.symbol == "wilddraw4":
+                    has_color_match = any(
+                        c.color == self.state.color and c.color != "any"
+                        for c in active_player.list_card
+                    )
+                    if has_color_match:
+                        continue  # Skip invalid wilddraw4 play
+                    # Add actions for each color choice with draw set to 4
+                    for color in self.state.LIST_COLOR:
+                        if color != "any":
+                            actions.append(Action(card=card, color=color, draw=4))
+                else:
+                    actions.append(Action(card=card, color=card.color if not is_wild else None))
+
+        # Add draw action if no playable cards
+        if not actions:
+            actions.append(Action(draw=max(1, self.state.cnt_to_draw)))
+
+        return actions
+
+
+
+
+
+
+
+        # Check playable cards
+        for card in active_player.list_card:
             if (
                 card.color == self.state.color
                 or card.number == top_card.number
                 or card.symbol == top_card.symbol
                 or card.color == "any"
             ):
+                # For wilddraw4, check if it can be legally played
+                if card.symbol == "wilddraw4" and any(
+                    c.color == self.state.color for c in active_player.list_card if c.color != "any"
+                ):
+                    continue
                 actions.append(Action(card=card, color=card.color if card.color != "any" else None))
 
-        # Add draw action
+        # Add draw action if no playable cards
         if not actions:
             actions.append(Action(draw=max(1, self.state.cnt_to_draw)))
         return actions
+
+
+
 
     def apply_action(self, action: Action):
         """Apply the given action to the game."""
@@ -164,6 +223,10 @@ class Uno(Game):
                     self.state.list_player[self.state.idx_player_active].list_card.append(card)
             self.state.has_drawn = True
             self.state.cnt_to_draw = 0
+
+            # Do not switch to the next player after a draw action
+            return
+
         else:
             # Player plays a card
             card = action.card
@@ -183,7 +246,7 @@ class Uno(Game):
             elif card.symbol == "wilddraw4":
                 self.state.cnt_to_draw += 4
 
-            # Check for UNO penalty
+            # Handle UNO penalty
             if len(self.state.list_player[self.state.idx_player_active].list_card) == 1 and not action.uno:
                 for _ in range(self.state.missed_uno_penalty):
                     if self.state.list_card_draw:
@@ -199,22 +262,46 @@ class Uno(Game):
                 self.state.idx_player_active + self.state.direction
             ) % self.state.cnt_player
 
-    def get_player_view(self, idx_player: int):
-        """Get the masked state for the given player."""
-        masked_state = copy.deepcopy(self.state)
-        for i, player in enumerate(masked_state.list_player):
-            if i != idx_player:
-                player.list_card = ["Hidden"] * len(player.list_card)
-        return masked_state
 
 
-# Testing and Initialization
+
+# Main Section
 if __name__ == "__main__":
     uno = Uno()
-    state = GameState(
-        list_card_draw=[Card(color="red", number=i) for i in range(10)],
-        list_card_discard=[],
-        list_player=[PlayerState(name=f"Player {i}") for i in range(4)],  # 4 players
-    )
-    uno.set_state(state)
-    uno.print_state()
+
+    # Generate a deck with exactly 93 cards
+    colors = ["red", "blue", "green", "yellow"]
+    numbers = list(range(10))  # Cards numbered 0-9
+    special_symbols = ["skip", "reverse", "draw2"]  # Special action cards
+
+    # Create the deck with adjusted rules
+    list_card_draw = []
+
+    # Add regular cards (0-9) once per color
+    for color in colors:
+        for number in numbers:
+            list_card_draw.append(Card(color=color, number=number, symbol=None))
+
+    # Add duplicates for numbers 1-5 (to reach 93 cards)
+    for color in colors:
+        for number in range(1, 6):  # Duplicates for numbers 1-5
+            list_card_draw.append(Card(color=color, number=number, symbol=None))
+
+    # Add special cards (2 of each per color)
+    for color in colors:
+        for symbol in special_symbols:
+            list_card_draw.append(Card(color=color, number=None, symbol=symbol))
+            list_card_draw.append(Card(color=color, number=None, symbol=symbol))
+
+    # Add wild cards
+    wild_cards = ["wild", "wilddraw4"]
+    for wild in wild_cards:
+        for _ in range(4):  # 4 of each wild card
+            list_card_draw.append(Card(color="any", number=None, symbol=wild))
+
+    # Ensure the deck is trimmed to exactly 93 cards
+    if len(list_card_draw) > 93:
+        list_card_draw = list_card_draw[:93]
+    elif len(list_card_draw) < 93:
+        # Add one more card to make it exactly 93
+        list_card_draw.append(Card(color="red", number=7, symbol=None))  # Example filler card
