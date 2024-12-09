@@ -1,132 +1,151 @@
-from server.py.game import Game, Player
 from typing import List, Optional
 from pydantic import BaseModel
 from enum import Enum
 import random
+import copy
+
+# Define placeholders for Game and Player if not provided
+class Game:
+    pass
+
+
+class Player:
+    pass
 
 
 class Card(BaseModel):
-    color: Optional[str] = None   # color of the card (see LIST_COLOR)
-    number: Optional[int] = None  # number of the card (if not a symbol card)
-    symbol: Optional[str] = None  # special cards (see LIST_SYMBOL)
+    color: Optional[str]  # color of the card (see LIST_COLOR)
+    number: Optional[int]  # number of the card (if not a symbol card)
+    symbol: Optional[str]  # special cards (see LIST_SYMBOL)
 
 
 class Action(BaseModel):
     card: Optional[Card] = None  # the card to play
     color: Optional[str] = None  # the chosen color to play (for wild cards)
-    draw: Optional[int] = None   # the number of cards to draw for the next player
-    uno: bool = False            # true to announce "UNO" with the second last card
+    draw: Optional[int] = None  # the number of cards to draw for the next player
+    uno: bool = False  # true to announce "UNO" with the second last card
 
 
 class PlayerState(BaseModel):
-    name: Optional[str] = None  # name of player
+    name: str = None  # name of player
     list_card: List[Card] = []  # list of cards
 
 
 class GamePhase(str, Enum):
-    SETUP = 'setup'            # before the game has started
-    RUNNING = 'running'        # while the game is running
-    FINISHED = 'finished'      # when the game is finished
+    SETUP = 'setup'  # before the game has started
+    RUNNING = 'running'  # while the game is running
+    FINISHED = 'finished'  # when the game is finished
 
 
 class GameState(BaseModel):
-    # numbers of cards for each player to start with
     CNT_HAND_CARDS: int = 7
-    # any = for wild cards
     LIST_COLOR: List[str] = ['red', 'green', 'yellow', 'blue', 'any']
-    # draw2 = draw two cards, wild = chose color, wilddraw4 = chose color and draw 4
     LIST_SYMBOL: List[str] = ['skip', 'reverse', 'draw2', 'wild', 'wilddraw4']
-    LIST_CARD: List[Card] = [
-        Card(color='red', number=0), Card(color='green', number=0), Card(color='yellow', number=0), Card(color='blue', number=0),
-        Card(color='red', number=1), Card(color='green', number=1), Card(color='yellow', number=1), Card(color='blue', number=1),
-        Card(color='red', number=2), Card(color='green', number=2), Card(color='yellow', number=2), Card(color='blue', number=2),
-        Card(color='red', number=3), Card(color='green', number=3), Card(color='yellow', number=3), Card(color='blue', number=3),
-        Card(color='red', number=4), Card(color='green', number=4), Card(color='yellow', number=4), Card(color='blue', number=4),
-        Card(color='red', number=5), Card(color='green', number=5), Card(color='yellow', number=5), Card(color='blue', number=5),
-        Card(color='red', number=6), Card(color='green', number=6), Card(color='yellow', number=6), Card(color='blue', number=6),
-        Card(color='red', number=7), Card(color='green', number=7), Card(color='yellow', number=7), Card(color='blue', number=7),
-        Card(color='red', number=8), Card(color='green', number=8), Card(color='yellow', number=8), Card(color='blue', number=8),
-        Card(color='red', number=9), Card(color='green', number=9), Card(color='yellow', number=9), Card(color='blue', number=9),
-        Card(color='red', number=1), Card(color='green', number=1), Card(color='yellow', number=1), Card(color='blue', number=1),
-        Card(color='red', number=2), Card(color='green', number=2), Card(color='yellow', number=2), Card(color='blue', number=2),
-        Card(color='red', number=3), Card(color='green', number=3), Card(color='yellow', number=3), Card(color='blue', number=3),
-        Card(color='red', number=4), Card(color='green', number=4), Card(color='yellow', number=4), Card(color='blue', number=4),
-        Card(color='red', number=5), Card(color='green', number=5), Card(color='yellow', number=5), Card(color='blue', number=5),
-        Card(color='red', number=6), Card(color='green', number=6), Card(color='yellow', number=6), Card(color='blue', number=6),
-        Card(color='red', number=7), Card(color='green', number=7), Card(color='yellow', number=7), Card(color='blue', number=7),
-        Card(color='red', number=8), Card(color='green', number=8), Card(color='yellow', number=8), Card(color='blue', number=8),
-        Card(color='red', number=9), Card(color='green', number=9), Card(color='yellow', number=9), Card(color='blue', number=9),
-        # skip next player
-        Card(color='red', symbol='skip'), Card(color='green', symbol='skip'), Card(color='yellow', symbol='skip'), Card(color='blue', symbol='skip'),
-        Card(color='red', symbol='skip'), Card(color='green', symbol='skip'), Card(color='yellow', symbol='skip'), Card(color='blue', symbol='skip'),
-        # revers playing direction
-        Card(color='red', symbol='reverse'), Card(color='green', symbol='reverse'), Card(color='yellow', symbol='reverse'), Card(color='blue', symbol='reverse'),
-        Card(color='red', symbol='reverse'), Card(color='green', symbol='reverse'), Card(color='yellow', symbol='reverse'), Card(color='blue', symbol='reverse'),
-        # next player must draw 2 cards
-        Card(color='red', symbol='draw2'), Card(color='green', symbol='draw2'), Card(color='yellow', symbol='draw2'), Card(color='blue', symbol='draw2'),
-        Card(color='red', symbol='draw2'), Card(color='green', symbol='draw2'), Card(color='yellow', symbol='draw2'), Card(color='blue', symbol='draw2'),
-        # current player choses color for next player to play
-        Card(color='any', symbol='wild'), Card(color='any', symbol='wild'),
-        Card(color='any', symbol='wild'), Card(color='any', symbol='wild'),
-        # current player choses color for next player to play and next player must draw 4 cards
-        Card(color='any', symbol='wilddraw4'), Card(color='any', symbol='wilddraw4'),
-        Card(color='any', symbol='wilddraw4'), Card(color='any', symbol='wilddraw4'),
-    ]
+    list_card_draw: List[Card] = []  # list of cards to draw
+    list_card_discard: List[Card] = []  # list of cards discarded
+    list_player: List[PlayerState] = []  # list of player-states
+    phase: GamePhase = GamePhase.SETUP
+    cnt_player: int = 0  # number of players
+    idx_player_active: Optional[int] = None  # index of the active player
+    direction: int = 1  # direction of play
+    color: str = None  # active color
+    cnt_to_draw: int = 0  # accumulated cards to draw
+    has_drawn: bool = False  # if the current player has drawn a card
 
-    list_card_draw: Optional[List[Card]]     # list of cards to draw
-    list_card_discard: Optional[List[Card]]  # list of cards discarded
-    list_player: List[PlayerState]           # list of player-states
-    phase: GamePhase                         # the current game-phase ("setup"|"running"|"finished")
-    cnt_player: int                          # number of players N (to be set in the phase "setup")
-    idx_player_active: Optional[int]         # the index (0 to N-1) of active player
-    direction: int                           # direction of the game, +1 to the left, -1 to right
-    color: str                               # active color (last card played or the chosen color after a wild cards)
-    cnt_to_draw: int                         # accumulated number of cards to draw for the next player
-    has_drawn: bool                          # flag to indicate if the last player has alreay drawn cards or not
+class RandomPlayer(Player):
+    def select_action(self, state: GameState, actions: List[Action]) -> Optional[Action]:
+        """Select an action randomly from the list of available actions."""
+        if not actions:
+            return None
+        return random.choice(actions)
 
 
 class Uno(Game):
 
-    def __init__(self) -> None:
-        """ Important: Game initialization also requires a set_state call to set the number of players """
-        pass
+    def __init__(self):
+        self.state = None
 
-    def set_state(self, state: GameState) -> None:
-        """ Set the game to a given state """
-        pass
+    def set_state(self, state: GameState):
+        """Set the game to a given state."""
+        self.state = state
+        if not self.state.list_card_discard:
+            # Initialize the discard pile with the first valid card
+            while self.state.list_card_draw:
+                card = self.state.list_card_draw.pop()
+                if card.symbol not in ['wild', 'wilddraw4']:
+                    self.state.list_card_discard.append(card)
+                    self.state.color = card.color
+                    break
+        self.state.idx_player_active = random.randint(0, self.state.cnt_player - 1)
 
-    def get_state(self) -> GameState:
-        """ Get the complete, unmasked game state """
-        pass
+    def get_state(self):
+        """Get the complete, unmasked game state."""
+        return self.state
 
-    def print_state(self) -> None:
-        """ Print the current game state """
-        pass
+    def print_state(self):
+        """Print the current game state."""
+        print(f"Active Color: {self.state.color}")
+        print(f"Active Player: Player {self.state.idx_player_active + 1}")
+        print(f"Discard Pile: {self.state.list_card_discard[-1]}")
+        print(f"Direction: {'Clockwise' if self.state.direction == 1 else 'Counterclockwise'}")
+        for i, player in enumerate(self.state.list_player):
+            print(f"Player {i + 1}: {len(player.list_card)} cards")
+        print(f"Draw Pile: {len(self.state.list_card_draw)} cards")
 
-    def get_list_action(self) -> List[Action]:
-        """ Get a list of possible actions for the active player """
-        pass
+    def get_list_action(self):
+        """Get a list of possible actions for the active player."""
+        actions = []
+        active_player = self.state.list_player[self.state.idx_player_active]
+        top_card = self.state.list_card_discard[-1]
 
-    def apply_action(self, action: Action) -> None:
-        """ Apply the given action to the game """
-        pass
+        # Check playable cards
+        for card in active_player.list_card:
+            if card.color == self.state.color or card.number == top_card.number or card.symbol == top_card.symbol or card.color == 'any':
+                actions.append(Action(card=card, color=card.color if card.color != 'any' else None))
 
-    def get_player_view(self, idx_player: int) -> GameState:
-        """ Get the masked state for the active player (e.g. the oppontent's cards are face down)"""
-        pass
+        # Add draw action
+        if not actions:
+            actions.append(Action(draw=1))
 
+        return actions
 
-class RandomPlayer(Player):
+    def apply_action(self, action: Action):
+        """Apply the given action to the game."""
+        if action.draw:
+            # Player draws cards
+            for _ in range(action.draw):
+                if self.state.list_card_draw:
+                    card = self.state.list_card_draw.pop()
+                    self.state.list_player[self.state.idx_player_active].list_card.append(card)
+            self.state.has_drawn = True
+        else:
+            # Player plays a card
+            card = action.card
+            self.state.list_player[self.state.idx_player_active].list_card.remove(card)
+            self.state.list_card_discard.append(card)
+            self.state.color = action.color or card.color
 
-    def select_action(self, state: GameState, actions: List[Action]) -> Optional[Action]:
-        """ Given masked game state and possible actions, select the next action """
-        if len(actions) > 0:
-            return random.choice(actions)
-        return None
+            # Handle special cards
+            if card.symbol == 'skip':
+                self.state.idx_player_active = (self.state.idx_player_active + 2 * self.state.direction) % self.state.cnt_player
+            elif card.symbol == 'reverse':
+                self.state.direction *= -1
+            elif card.symbol == 'draw2':
+                self.state.cnt_to_draw += 2
+            elif card.symbol == 'wilddraw4':
+                self.state.cnt_to_draw += 4
 
+        # Check if the game is finished
+        if not self.state.list_player[self.state.idx_player_active].list_card:
+            self.state.phase = GamePhase.FINISHED
+        else:
+            # Move to the next player
+            self.state.idx_player_active = (self.state.idx_player_active + self.state.direction) % self.state.cnt_player
 
-if __name__ == '__main__':
-
-    uno = Uno()
-    state = GameState(cnt_player=3)
-    uno.set_state(state)
+    def get_player_view(self, idx_player: int):
+        """Get the masked state for the given player."""
+        masked_state = copy.deepcopy(self.state)
+        for i, player in enumerate(masked_state.list_player):
+            if i != idx_player:
+                player.list_card = ['Hidden'] * len(player.list_card)
+        return masked_state
