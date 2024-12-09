@@ -196,7 +196,8 @@ class Dog(Game):
             else:
                 for marble in player.list_marble:
                     if marble.pos == -1 and card.rank in ['A', 'K']:
-                        actions.append(Action(card=card, pos_from=64, pos_to=0))  #change pos_from 0->64 gj
+                        if not any(m2.pos == 0 for m2 in player.list_marble): #gj test_007
+                            actions.append(Action(card=card, pos_from=64, pos_to=0))  #change pos_from 0->64 gj
                     elif marble.pos >= 0 and card.rank.isdigit():
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
