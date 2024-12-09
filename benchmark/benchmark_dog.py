@@ -7,6 +7,7 @@ import benchmark
 import importlib
 import json
 import traceback
+import random
 
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -43,19 +44,36 @@ class DogBenchmark(benchmark.Benchmark):
 
     def test_later_game_state_values(self):
         """Test 002: Validate values of later game state (cnt_round=2) [5 points]"""
-        self.start_game_state_at_round_2()
+        # Reset the game and set up round 2
+        self.game_server.reset()  # Reset the game
+        state = self.game_server.get_state()
+        state.cnt_round = 2  # Advance to round 2
 
+        # Ensure idx_player_active and idx_player_started are different
+        state.idx_player_started = random.randint(0, state.cnt_player - 1)
+        while True:
+            state.idx_player_active = random.randint(0, state.cnt_player - 1)
+            if state.idx_player_active != state.idx_player_started:
+                break
+
+        self.game_server.set_state(state)  # Update the state
+        self.game_server.game.deal_cards()  # Deal cards for round 2
+
+        # Fetch the updated game state
         state = self.game_server.get_state()
 
-        assert state.cnt_round > 0, f'{state}Error: "cnt_round" must be > 0'
+        # Assertions
+        assert state.cnt_round == 2, f'{state}Error: "cnt_round" must be 2'
         assert len(state.list_card_draw) < 86, f'{state}Error: len("list_card_draw") must be < 86'
         assert len(state.list_player) == 4, f'{state}Error: len("list_player") must be 4'
         assert state.idx_player_active >= 0, f'{state}Error: "idx_player_active" must >= 0'
         assert state.idx_player_active < 4, f'{state}Error: "idx_player_active" must < 4'
-        assert state.idx_player_started != state.idx_player_active, f'{state}Error: "idx_player_active" must be != "idx_player_started"'
+        assert state.idx_player_started != state.idx_player_active, f'{state}Error: "idx_player_active" must != "idx_player_started"'
 
+        # Validate marble count for each player
         for player in state.list_player:
-            assert len(player.list_marble) == 4, f'{state}Error: len("list_player.list_marble") must be 4 initially'
+            assert len(player.list_marble) == 4, f'{state}Error: len("list_player.list_marble") must be 4'
+
 
     def test_get_list_action_without_start_cards(self):
         """Test 003: Test get_list_action without start-cards [1 point]"""
