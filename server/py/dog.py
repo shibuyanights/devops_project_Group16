@@ -208,6 +208,22 @@ class Dog(Game):
                     elif marble.pos >= 0 and card.rank.isdigit():
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
+            # GJ problem 21
+            if card.rank == 'J':
+                player_positions = [m.pos for m in player.list_marble if m.pos >= 0]
+
+                opponent_positions = []
+                for op in self.state.list_player:
+                    if op is not player:
+                        for om in op.list_marble:
+                            if om.pos >= 0 and not om.is_save:
+                                opponent_positions.append(om.pos)
+
+                # Create swap actions
+                for p_pos in player_positions:
+                    for o_pos in opponent_positions:
+                        actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))
+                        actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))
 
         return self.remove_invalid_actions(actions)
 
