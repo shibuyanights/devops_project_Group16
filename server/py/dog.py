@@ -94,7 +94,8 @@ class GameState(BaseModel):
     list_card_discard: List[Card] = []
     card_active: Optional[Card] = None
 
-
+    # Add steps_used attribute
+    steps_used: Optional[int] = None
 
 class Dog(Game):
     def __init__(self) -> None:
