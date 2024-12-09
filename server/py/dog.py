@@ -166,7 +166,7 @@ class Dog(Game):
 
         # Handle other actions
         if action.card in player.list_card:
-            if action.pos_from == -1 and action.pos_to is not None:  # Move out of Kennel
+            if action.pos_from in(-1,64) and action.pos_to is not None:  # Move out of Kennel #change gj -1-> (-1,64)
                 marble = next(m for m in player.list_marble if m.pos == -1)
                 marble.pos = action.pos_to
                 marble.is_save = True
