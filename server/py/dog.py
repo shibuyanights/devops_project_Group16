@@ -128,7 +128,7 @@ class Dog(Game):
         """Apply the given action to the game."""
         if action is None:
             self.state.card_active = None
-            self.state.steps_remaining = None
+            self.state.steps_used = None
             return
 
         player = self.state.list_player[self.state.idx_player_active]
@@ -192,25 +192,21 @@ class Dog(Game):
 
     def deal_cards(self) -> None:
         """Distribute cards to all players."""
-        num_cards = 6 - (self.state.cnt_round - 1) % 5  # Calculate cards per round
-        print(f"Dealing {num_cards} cards to each player in round {self.state.cnt_round}.")
+        num_cards = 6 - (self.state.cnt_round - 1) % 5
 
-        # Replenish draw pile if needed
         if len(self.state.list_card_draw) < num_cards * self.state.cnt_player:
-            print("Replenishing draw pile from discard pile.")
             self.state.list_card_draw.extend(self.state.list_card_discard)
             random.shuffle(self.state.list_card_draw)
             self.state.list_card_discard.clear()
 
-        # Distribute cards
         for i, player in enumerate(self.state.list_player):
-            player.list_card.clear()  # Reset player's card list
+            player.list_card.clear()
             if len(self.state.list_card_draw) >= num_cards:
                 player.list_card = self.state.list_card_draw[:num_cards]
                 self.state.list_card_draw = self.state.list_card_draw[num_cards:]
-                print(f"Player {i+1} received cards: {[card.rank for card in player.list_card]}")
             else:
                 raise ValueError("Not enough cards in the draw pile to deal!")
+
 
         print(f"After dealing: {len(self.state.list_card_draw)} cards remain in the draw pile.")
         print(f"Discard pile size: {len(self.state.list_card_discard)}")
@@ -225,7 +221,11 @@ class Dog(Game):
             return
 
         player = self.state.list_player[self.state.idx_player_active]
+        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
 
+        if self.state.idx_player_active == self.state.idx_player_started:
+            self.start_new_round()
+            
         # Handle JOKER swap action
         if action.card.rank == 'JKR' and action.card_swap:
             self.state.card_active = action.card_swap
@@ -324,6 +324,12 @@ class Dog(Game):
     def get_player_view(self, idx_player: int) -> GameState:
         """Get a masked view of the game state for the given player."""
         return self.state
+
+    def start_new_round(self) -> None:
+        """Start a new round by resetting necessary state and dealing cards."""
+        self.state.cnt_round += 1
+        self.state.idx_player_active = self.state.idx_player_started
+        self.deal_cards()
 
     def set_state(self, state: GameState) -> None:
         """Set the game to a given state."""

@@ -7,6 +7,7 @@ import benchmark
 import importlib
 import json
 import traceback
+import random
 
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -43,47 +44,37 @@ class DogBenchmark(benchmark.Benchmark):
 
     def test_later_game_state_values(self):
         """Test 002: Validate values of later game state (cnt_round=2) [5 points]"""
-        # Access the game instance from the benchmark
-        game = self.game_server
+        # Reset the game and set up round 2
+        self.game_server.reset()  # Reset the game
+        state = self.game_server.get_state()
+        state.cnt_round = 2  # Advance to round 2
 
-        # Set up the game state for round 2
-        state = GameState(
-            cnt_player=4,
-            phase=GamePhase.RUNNING,
-            cnt_round=2,
-            bool_game_finished=False,
-            bool_card_exchanged=True,
-            idx_player_started=1,
-            idx_player_active=2,
-            list_player=[
-                PlayerState(
-                    name=f"Player{i+1}",
-                    list_card=[Card(suit='♠', rank='A') for _ in range(6)],
-                    list_marble=[Marble(pos=str(i * 16), is_save=(i % 2 == 0)) for i in range(4)]
-                ) for i in range(4)
-            ],
-            list_card_draw=[Card(suit='♣', rank='K') for _ in range(60)],
-            list_card_discard=[Card(suit='♦', rank='10') for _ in range(26)],
-            card_active=None
-        )
+        # Ensure idx_player_active and idx_player_started are different
+        state.idx_player_started = random.randint(0, state.cnt_player - 1)
+        while True:
+            state.idx_player_active = random.randint(0, state.cnt_player - 1)
+            if state.idx_player_active != state.idx_player_started:
+                break
 
-        # Apply the state
-        game.set_state(state)
+        self.game_server.set_state(state)  # Update the state
+        self.game_server.game.deal_cards()  # Deal cards for round 2
 
-        # Retrieve the current state from the game
-        current_state = game.get_state()
+        # Fetch the updated game state
+        state = self.game_server.get_state()
 
-        # Assertions for validation
-        assert current_state.cnt_round == 2, f"Error: 'cnt_round' expected 2 but found {current_state.cnt_round}"
-        assert len(current_state.list_card_draw) < 86, f"Error: 'list_card_draw' expected less than 86 but found {len(current_state.list_card_draw)}"
-        assert len(current_state.list_player) == 4, f"Error: 'list_player' count expected 4 but found {len(current_state.list_player)}"
-        assert 0 <= current_state.idx_player_active < 4, f"Error: 'idx_player_active' expected to be within range 0-3 but found {current_state.idx_player_active}"
-        assert current_state.idx_player_started != current_state.idx_player_active, (
-            f"Error: 'idx_player_active' ({current_state.idx_player_active}) should not equal 'idx_player_started' ({current_state.idx_player_started})"
-        )
+        # Assertions
+        assert state.cnt_round == 2, f'{state}Error: "cnt_round" must be 2'
+        assert len(state.list_card_draw) < 86, f'{state}Error: len("list_card_draw") must be < 86'
+        assert len(state.list_player) == 4, f'{state}Error: len("list_player") must be 4'
+        assert state.idx_player_active >= 0, f'{state}Error: "idx_player_active" must >= 0'
+        assert state.idx_player_active < 4, f'{state}Error: "idx_player_active" must < 4'
+        assert state.idx_player_started != state.idx_player_active, f'{state}Error: "idx_player_active" must != "idx_player_started"'
 
-        for player in current_state.list_player:
-            assert len(player.list_marble) == 4, f"Error: Each player must have 4 marbles but found {len(player.list_marble)}"
+        # Validate marble count for each player
+        for player in state.list_player:
+            assert len(player.list_marble) == 4, f'{state}Error: len("list_player.list_marble") must be 4'
+
+
     def test_get_list_action_without_start_cards(self):
         """Test 003: Test get_list_action without start-cards [1 point]"""
         self.game_server.reset()
@@ -1160,49 +1151,66 @@ class DogBenchmark(benchmark.Benchmark):
                     assert idx_marble != -1, hint
 
                 pos_from = pos_to
-    
 
     def test_move_with_SEVEN_multiple_steps_6(self):
-        """Test 034: Test move with card SEVEN in multiple steps [5 points]"""
+        """Test 034: Test move with card SEVEN into finish [5 point]"""
 
         steps_split = [5, 2]
-        list_card = [Card(suit='♣', rank='7')]
+        list_card = [Card(suit='♣', rank='7'), Card(suit='♦', rank='7'), Card(suit='♥', rank='7'), Card(suit='♠', rank='7')]
 
         for card in list_card:
+
             self.game_server.reset()
             state = self.game_server.get_state()
 
             pos_from = 13
+            card_seven_steps_remaining = 7
+            card_active = card
             idx_player_active = 1
+            state.cnt_round = 0
+            state.idx_player_started = idx_player_active
             state.idx_player_active = idx_player_active
+            state.bool_card_exchanged = True
             player = state.list_player[idx_player_active]
             player.list_card = [card]
             marble = player.list_marble[0]
             marble.pos = pos_from
+            marble.is_save = False
             self.game_server.set_state(state)
+            str_states = str(state)
 
-        for steps in steps_split:
-            pos_to = pos_from + steps
-            if pos_to >= 96:  # Handle board wrapping
-                pos_to -= 96
+            for steps in steps_split:
 
-                action = Action(card=card, pos_from=pos_from, pos_to=pos_to, steps_used=steps)
+                pos_to = 77 if steps == 5 else 79
+                action = Action(card=card, pos_from=pos_from, pos_to=pos_to)
                 self.game_server.apply_action(action)
+                str_states += f'Action: {action}\n'
 
-                # Verify marble's new position
-                marble_index = self.get_idx_marble(player, pos_to)
-                assert marble_index != -1, f"Marble not found at pos_to={pos_to}. Marble positions: {[m.pos for m in player.list_marble]}"
+                card_seven_steps_remaining -= steps
 
-                # Update pos_from for the next step
+                state = self.game_server.get_state()
+                str_states += str(state)
+
+                found = False
+                player = state.list_player[idx_player_active]
+                found = self.get_idx_marble(player=player, pos=pos_to) != -1
+                hint = str_states
+                hint += f'Error 1: Player 1\'s marble must be moved from pos={pos_from} to pos={pos_to} with card={card}'
+                assert found, hint
+
+                if card_seven_steps_remaining == 0:
+                    idx_player_active += 1
+                    card_active = None
+
+                hint = str_states
+                hint += f'Error 2: "idx_player_active" should be {idx_player_active} not {state.idx_player_active}'
+                assert state.idx_player_active == idx_player_active, hint
+
+                hint = str_states
+                hint += f'Error 3: "card_active" must be set to "{card}" {"after" if card_active is None else "while"} steps of card SEVEN are moved.'
+                assert state.card_active == card_active, hint
+
                 pos_from = pos_to
-
-
-    def get_idx_marble(self, player, pos):
-        """Find the index of the marble at the given position."""
-        for idx, marble in enumerate(player.list_marble):
-            if marble.pos == pos:
-                return idx
-        return -1
 
     def test_move_with_SEVEN_multiple_steps_7(self):
         """Test 035: Test move with card SEVEN into finish [5 point]"""
