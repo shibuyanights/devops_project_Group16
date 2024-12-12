@@ -94,6 +94,31 @@ class GameState(BaseModel):
     # Add steps_used attribute
     steps_used: Optional[int] = None
 
+    def __str__(self) -> str:
+        # Create a concise, distinct representation of the GameState
+        player_descriptions = []
+        for i, player in enumerate(self.list_player, start=1):
+            card_list = [f"{card.rank}{card.suit}" for card in player.list_card]
+            marble_positions = [f"{marble.pos}{'✓' if marble.is_save else ''}" for marble in player.list_marble]
+            player_descriptions.append(
+                f"  Player {i} - {player.name}\n"
+                f"    Cards: {', '.join(card_list) if card_list else 'None'}\n"
+                f"    Marbles: {', '.join(marble_positions) if marble_positions else 'None'}"
+            )
+
+        state_str = (
+            f"=== GAME STATE ===\n"
+            f"Phase: {self.phase} | Round: {self.cnt_round}\n"
+            f"Active Player: {self.idx_player_active + 1}\n"
+            f"{chr(10).join(player_descriptions)}\n"
+            f"Draw Pile: {len(self.list_card_draw)} cards | Discard Pile: {len(self.list_card_discard)} cards\n"
+            f"Active Card: {self.card_active.rank + self.card_active.suit if self.card_active else 'None'}\n"
+            f"Steps Used: {self.steps_used if self.steps_used is not None else 'N/A'}\n"
+            f"=================="
+        )
+
+        return state_str
+
 class Dog(Game):
     def __init__(self) -> None:
         """Initialize the game with default values."""
