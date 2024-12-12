@@ -339,8 +339,7 @@ class Dog(Game):
             else:
                 for marble in player.list_marble:
                     if marble.is_save and marble.pos == 0:  # Start position and "is_save"
-                        continue
-
+                        continue # Skip this marble as it blocks overtaking
 
                     if marble.pos == -1 and card.rank in ['A', 'K']:
                         if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
