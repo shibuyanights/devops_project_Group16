@@ -375,6 +375,10 @@ Game.prototype.calc_objects_rect = function() {
 	for(var i=0; i<this.player_state.list_action.length; i++) {
 		var action = this.player_state.list_action[i];
 		if(action.card_swap!=null) {
+			
+			// limit swap actions to ♥ cards, because of limited space!
+			if(action.card.rank=='JKR' && action.card_swap.suit!='♥') continue;
+     		
      		this.dict_exchange_card_rect.push({
      			'card': action.card_swap,
      		});
@@ -505,7 +509,7 @@ Game.prototype.calc_selectable = function() {
 	     		cnt_exchange_cards_selectable += 1
 			}
 		}
-	
+
      	var cnt_balls_selectable = 0;
      	var idx_balls_selectable = null;
 		for(var i=0; i<this.player_state.list_action.length; i++) {
@@ -619,8 +623,8 @@ Game.prototype.on_mouse_down = function(e) {
 		     			var exchange_card_rect = this.dict_exchange_card_rect[this.selection_state.idx_exchange_card_selected]
 			     		card_exchange = exchange_card_rect.card;
 		     		}
-		     		console.log(card, pos_from, pos_to, card_exchange)
-		     		console.log(this.player_state.list_action)
+		     		//console.log(card, pos_from, pos_to, card_exchange)
+		     		//console.log(this.player_state.list_action)
 		     		for(var i=0; i < this.player_state.list_action.length; i++) {
 		     			if((this.are_cards_equal(this.player_state.list_action[i].card, card)
 		     					&& this.player_state.list_action[i].pos_from==pos_from
@@ -630,7 +634,7 @@ Game.prototype.on_mouse_down = function(e) {
 		     				break;
 		     			}
 		     		}
-		     		console.log(action);
+		     		//console.log(action);
 		     		this.send_action_callback(action);
 		     		return;
 	     		} else {
