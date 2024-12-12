@@ -40,6 +40,7 @@ Game.prototype.load_font = function () {
 
 Game.prototype.set_state = function(state) {
 	this.state = state;
+	console.log(state);
 	this.calc_objects_rect();
 	this.render();
 }
@@ -70,11 +71,12 @@ Game.prototype.calc_objects_rect = function () {
 
 	this.objects_word = [];
 	for(var i=0; i<this.state.word_to_guess.length; i++){
-		var c = this.state.word_to_guess[i];
+		var c = this.state.word_to_guess[i].toUpperCase();
 		this.objects_word.push({
 			'x': x,
 			'y': y,
-			'c': c.toUpperCase(),
+			'c': c,
+			'guessed': this.state.guesses.includes(c),
 		})
 		x += dx;
 	}
@@ -224,22 +226,31 @@ Game.prototype.render = function () {
 	for(var i=0; i<this.objects_word.length; i++){
 		var char = this.objects_word[i];
 		if(char.c!='_') {
-			ctx.fillStyle = "black";
+			if(char.guessed) {
+				ctx.fillStyle = "black";
+			} else {
+				ctx.fillStyle = "red";
+			}
 			ctx.fillText(char.c, char.x, char.y);
-		} else if(this.state.solution!='') {
+		} /*else if(this.state.solution!='') {
 			var s = this.state.solution[i];
 			ctx.fillStyle = "red";
 			ctx.fillText(s, char.x, char.y);
-		}
+		}*/
 		ctx.fillStyle = "black";
 		ctx.fillText('_', char.x, char.y+5);
 	}
 
-	if(this.state=='finished') {
-		ctx.fillStyle = this.dict_colors[1];
+	if(this.state.phase=='finished') {
 		ctx.font = "50px Handwriting";
 		ctx.textAlign = "center";
-		ctx.fillText('You Won!', 360, 120);
+		if(errors<8) {
+			ctx.fillStyle = this.dict_colors[1];
+			ctx.fillText('You Won!', 360, 120);			
+		} else {
+			ctx.fillStyle = 'red';
+			ctx.fillText('You Lose!', 360, 120);			
+		}
 	};
 
 	ctx.lineWidth = 2;
