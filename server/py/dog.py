@@ -338,6 +338,9 @@ class Dog(Game):
                             actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank=rank)))
             else:
                 for marble in player.list_marble:
+                    if marble.is_save and marble.pos == 0:  # Start position and "is_save"
+                        continue # Skip this marble as it blocks overtaking
+
                     if marble.pos == -1 and card.rank in ['A', 'K']:
                         if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
                             actions.append(Action(card=card, pos_from=64, pos_to=0))  # change pos_from 0->64 gj
