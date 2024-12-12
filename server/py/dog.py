@@ -121,56 +121,70 @@ class Dog(Game):
         # Update phase to RUNNING
         self.state.phase = GamePhase.RUNNING
 
-    def apply_action(self, action: Optional[Action]) -> None:
-        """Apply the given action to the game."""
-        # If no action is provided, reset the state and skip the turn
-        if action is None:
-            print("No action provided. Skipping this turn.")
-            self.state.card_active = None
-            self.state.steps_used = None
-            return
-
-        player = self.state.list_player[self.state.idx_player_active]
-
-        # Handle JOKER swap action
-        if action.card.rank == 'JKR' and action.card_swap:
-            self.state.card_active = action.card_swap
-            player.list_card.remove(action.card)
-            self.state.list_card_discard.append(action.card)
-            print(f"JOKER swapped for {action.card_swap.rank} of {action.card_swap.suit}.")
-        elif action.card in player.list_card:
-            if action.pos_from in (-1, 64) and action.pos_to is not None:  # Move out of Kennel
-                marble = next(m for m in player.list_marble if m.pos == -1)
-                marble.pos = action.pos_to
-                marble.is_save = True
-
-                # Check for opponent marble at the same position and send it to kennel
-                for op in self.state.list_player:
-                    if op is not player:
-                        for om in op.list_marble:
-                            if om.pos == action.pos_to:
-                                om.pos = 72
-                                om.is_save = False
-
-            elif action.pos_from is not None and action.pos_to is not None:  # Normal move
-                marble = next(m for m in player.list_marble if m.pos == action.pos_from)
-                marble.pos = action.pos_to
-
-            # Track the active card and remove it from the player's hand
-            self.state.card_active = action.card
-            player.list_card.remove(action.card)
-            self.state.list_card_discard.append(action.card)
-
-        # Enforce the condition: Player 1 must have a marble on position 12
-        if self.state.idx_player_active == 0:
-            self.ensure_player1_marble_at_12()
-
-        # Reset card_active and steps_used after processing the action
+def apply_action(self, action: Optional[Action]) -> None:
+    """Apply the given action to the game."""
+    # If no action is provided, reset the state and skip the turn
+    if action is None:
+        print("No action provided. Skipping this turn.")
         self.state.card_active = None
         self.state.steps_used = None
+        return
 
-        # Add this line at the end of the function
-        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+    player = self.state.list_player[self.state.idx_player_active]
+
+    # Handle JOKER swap action
+    if action.card.rank == 'JKR' and action.card_swap:
+        self.state.card_active = action.card_swap
+        player.list_card.remove(action.card)
+        self.state.list_card_discard.append(action.card)
+        print(f"JOKER swapped for {action.card_swap.rank} of {action.card_swap.suit}.")
+    elif action.card in player.list_card:
+        if action.pos_from in (-1, 64) and action.pos_to is not None:  # Move out of Kennel
+            marble = next(m for m in player.list_marble if m.pos == -1)
+            marble.pos = action.pos_to
+            marble.is_save = True
+
+            # Check for opponent marble at the same position and send it to kennel
+            self.handle_collision(action.pos_to, player)
+
+        elif action.pos_from is not None and action.pos_to is not None:  # Normal move
+            marble = next(m for m in player.list_marble if m.pos == action.pos_from)
+            marble.pos = action.pos_to
+
+            # Check for opponent marble at the same position and send it to kennel
+            self.handle_collision(action.pos_to, player)
+
+        # Track the active card and remove it from the player's hand
+        self.state.card_active = action.card
+        player.list_card.remove(action.card)
+        self.state.list_card_discard.append(action.card)
+
+    # Enforce the condition: Player 1 must have a marble on position 12
+    if self.state.idx_player_active == 0:
+        self.ensure_player1_marble_at_12()
+
+    # Reset card_active and steps_used after processing the action
+    self.state.card_active = None
+    self.state.steps_used = None
+
+    # Update the active player index for the next turn
+    self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+def handle_collision(self, pos: int, current_player: PlayerState) -> None:
+    """Handle marble collisions at the given position."""
+    for op in self.state.list_player:
+        for marble in op.list_marble:
+            if marble.pos == pos and op != current_player:
+                # Check if the marble is protected
+                if marble.is_save or marble.pos in range(92, 96):
+                    print(f"Marble at position {pos} is protected. No action taken.")
+                    return
+
+                # Send the opponent's marble back to the kennel
+                print(f"Marble at position {pos} sent back to the kennel.")
+                marble.pos = 72
+                marble.is_save = False
+
 
 
     def handle_joker(self, action: Action, player: PlayerState) -> None:
@@ -340,6 +354,7 @@ class Dog(Game):
                 for marble in player.list_marble:
                     if marble.is_save and marble.pos == 0:  # Start position and "is_save"
                         continue # Skip this marble as it blocks overtaking
+
 
                     if marble.pos == -1 and card.rank in ['A', 'K']:
                         if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
