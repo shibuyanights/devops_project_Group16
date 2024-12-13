@@ -7,23 +7,26 @@ from server.py.game import Game, Player
 
 
 class Card(BaseModel):
-    suit: str  # card suit (color)
-    rank: str  # card rank
+    suit: str
+    rank: str
 
-    def __lt__(self, other: Card) -> bool:
-        """Implement comparison for sorting: first by suit, then by rank."""
-        return self.suit < other.suit or (
-            self.suit == other.suit and LIST_RANK.index(self.rank) < LIST_RANK.index(other.rank)
-        )
+    def __lt__(self, other):
+        if not isinstance(other, Card):
+            return NotImplemented
+        # Convert to strings for comparison
+        return str(self) < str(other)
 
-    def __eq__(self, other: Card) -> bool:
-        """Equality comparison for Card objects."""
+    def __eq__(self, other):
+        if not isinstance(other, Card):
+            return NotImplemented
         return self.suit == other.suit and self.rank == other.rank
 
+    def __str__(self):
+        return f"{self.suit}{self.rank}"
+    
     def __hash__(self) -> int:
         """Make Card hashable."""
         return hash((self.suit, self.rank))
-
 
 class Marble(BaseModel):
     pos: int       # position on board (-1 for Kennel, 0 to 95 for board positions)
@@ -66,13 +69,41 @@ class GamePhase(str, Enum):
 
 
 class GameState(BaseModel):
-    # Constants moved outside the class for clarity and reuse
-    LIST_SUIT = ['♠', '♥', '♦', '♣']  # 4 suits (colors)
-    LIST_RANK = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', 'JKR']
+    LIST_SUIT: ClassVar[List[str]] = ['♠', '♥', '♦', '♣']  # 4 suits (colors)
+    LIST_RANK: ClassVar[List[str]] = [
+        '2', '3', '4', '5', '6', '7', '8', '9', '10',      # 13 ranks + Joker
+        'J', 'Q', 'K', 'A', 'JKR'
+    ]
     LIST_CARD: ClassVar[List[Card]] = [
-        Card(suit=suit, rank=rank)
-        for suit in LIST_SUIT for rank in LIST_RANK[:-1]
-    ] * 2 + [Card(suit='', rank='JKR')] * 6  # Full deck
+        # 2: Move 2 spots forward
+        Card(suit='♠', rank='2'), Card(suit='♥', rank='2'), Card(suit='♦', rank='2'), Card(suit='♣', rank='2'),
+        # 3: Move 3 spots forward
+        Card(suit='♠', rank='3'), Card(suit='♥', rank='3'), Card(suit='♦', rank='3'), Card(suit='♣', rank='3'),
+        # 4: Move 4 spots forward or back
+        Card(suit='♠', rank='4'), Card(suit='♥', rank='4'), Card(suit='♦', rank='4'), Card(suit='♣', rank='4'),
+        # 5: Move 5 spots forward
+        Card(suit='♠', rank='5'), Card(suit='♥', rank='5'), Card(suit='♦', rank='5'), Card(suit='♣', rank='5'),
+        # 6: Move 6 spots forward
+        Card(suit='♠', rank='6'), Card(suit='♥', rank='6'), Card(suit='♦', rank='6'), Card(suit='♣', rank='6'),
+        # 7: Move 7 single steps forward
+        Card(suit='♠', rank='7'), Card(suit='♥', rank='7'), Card(suit='♦', rank='7'), Card(suit='♣', rank='7'),
+        # 8: Move 8 spots forward
+        Card(suit='♠', rank='8'), Card(suit='♥', rank='8'), Card(suit='♦', rank='8'), Card(suit='♣', rank='8'),
+        # 9: Move 9 spots forward
+        Card(suit='♠', rank='9'), Card(suit='♥', rank='9'), Card(suit='♦', rank='9'), Card(suit='♣', rank='9'),
+        # 10: Move 10 spots forward
+        Card(suit='♠', rank='10'), Card(suit='♥', rank='10'), Card(suit='♦', rank='10'), Card(suit='♣', rank='10'),
+        # Jake: A marble must be exchanged
+        Card(suit='♠', rank='J'), Card(suit='♥', rank='J'), Card(suit='♦', rank='J'), Card(suit='♣', rank='J'),
+        # Queen: Move 12 spots forward
+        Card(suit='♠', rank='Q'), Card(suit='♥', rank='Q'), Card(suit='♦', rank='Q'), Card(suit='♣', rank='Q'),
+        # King: Start or move 13 spots forward
+        Card(suit='♠', rank='K'), Card(suit='♥', rank='K'), Card(suit='♦', rank='K'), Card(suit='♣', rank='K'),
+        # Ass: Start or move 1 or 11 spots forward
+        Card(suit='♠', rank='A'), Card(suit='♥', rank='A'), Card(suit='♦', rank='A'), Card(suit='♣', rank='A'),
+        # Joker: Use as any other card you want
+        Card(suit='', rank='JKR'), Card(suit='', rank='JKR'), Card(suit='', rank='JKR')
+    ] * 2
 
     cnt_player: int = 4
     phase: GamePhase = GamePhase.SETUP
@@ -165,54 +196,59 @@ class Dog(Game):
             print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
 
-   def get_list_action(self) -> List[Action]:
+
+    def get_list_action(self) -> List[Action]:
         """Get a list of possible actions for the active player."""
         player = self.state.list_player[self.state.idx_player_active]
         actions: List[Action] = []
 
         for card in player.list_card:
             if card.rank == 'JKR':
+                # Joker actions: Moving from kennel and swaps
                 actions.append(Action(card=card, pos_from=64, pos_to=0))
+
                 if self.state.cnt_round == 0:
-                    for suit in LIST_SUIT:
+                    # Early game: Joker can swap with A or K
+                    for suit in GameState.LIST_SUIT:
                         actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='A')))
                         actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='K')))
                 else:
-                    for suit in LIST_SUIT:
-                        for rank in LIST_RANK[:-1]:  # Exclude 'JKR'
+                    # Late game: Joker can swap with all other cards
+                    for suit in GameState.LIST_SUIT:
+                        for rank in GameState.LIST_RANK[:-1]:  # Exclude 'JKR'
                             actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank=rank)))
+
             else:
                 for marble in player.list_marble:
-                    if marble.is_save and marble.pos == 0:  # Start position and "is_save"
-                        continue # Skip this marble as it blocks overtaking
-
+                    # Handle start cards (A, K) for moving out of the kennel
                     if marble.pos == -1 and card.rank in ['A', 'K']:
-                        if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
-                            actions.append(Action(card=card, pos_from=64, pos_to=0))  # change pos_from 0->64 gj
-                    elif marble.pos >= 0 and card.rank.isdigit():   	1
+                        if not any(m2.pos == 0 for m2 in player.list_marble):  # Ensure no marble is already in start position
+                            actions.append(Action(card=card, pos_from=64, pos_to=0))
+                    elif marble.pos >= 0 and card.rank.isdigit():
+                        # Normal move for number cards
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
-            # GJ problem 21
+            # Jack (J) card actions: Swapping marbles
             if card.rank == 'J':
                 player_positions = [m.pos for m in player.list_marble if m.pos >= 0]
-
                 opponent_positions = []
+
+                # Collect opponent positions for swapping
                 for op in self.state.list_player:
                     if op is not player:
                         for om in op.list_marble:
                             if om.pos >= 0 and not om.is_save:
                                 opponent_positions.append(om.pos)
 
-                # Create swap actions
-                if opponent_positions:
-                    # Swapping with opponents
-                    for p_pos in player_positions:
-                        for o_pos in opponent_positions:
-                            actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))
-                            actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))
-                else:
-                    # Swapping within the same player's marbles
+                # Swapping with opponents
+                for p_pos in player_positions:
+                    for o_pos in opponent_positions:
+                        actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))
+                        actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))
+
+                # If no opponents to swap with, swap within player's own marbles
+                if not opponent_positions:
                     for marble_1 in player.list_marble:
                         if marble_1.pos >= 0:
                             for marble_2 in player.list_marble:
@@ -220,7 +256,12 @@ class Dog(Game):
                                     actions.append(Action(card=card, pos_from=marble_1.pos, pos_to=marble_2.pos))
                                     actions.append(Action(card=card, pos_from=marble_2.pos, pos_to=marble_1.pos))
 
-        return self.remove_invalid_actions(actions)
+        # Ensuring unique actions
+        unique_actions = list({
+            (action.card, action.pos_from, action.pos_to, action.card_swap): action for action in actions
+        }.values())
+
+        return unique_actions
 
     def apply_action(self, action: Optional[Action]) -> None:
         """Apply the given action to the game."""
@@ -272,6 +313,7 @@ class Dog(Game):
 
         # Add this line at the end of the function
         self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
 
     def get_player_view(self, idx_player: int) -> GameState:
         """Get a masked view of the game state for the given player."""
