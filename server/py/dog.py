@@ -198,10 +198,10 @@ class Dog(Game):
 
     def get_list_action(self) -> List[Action]:
         """Get a list of possible actions for the active player."""
-        player = self.state.list_player[self.state.idx_player_active]
+        active_player = self.state.list_player[self.state.idx_player_active]  # Active player
         actions: List[Action] = []
 
-        for card in player.list_card:
+        for card in active_player.list_card:
             if card.rank == 'JKR':
                 # Joker actions: Moving from kennel and swaps
                 actions.append(Action(card=card, pos_from=64, pos_to=0))
@@ -218,39 +218,39 @@ class Dog(Game):
                             actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank=rank)))
 
             else:
-                for marble in player.list_marble:
+                for marble in active_player.list_marble:
                     # Handle start cards (A, K) for moving out of the kennel
                     if marble.pos == -1 and card.rank in ['A', 'K']:
-                        if not any(m2.pos == 0 for m2 in player.list_marble):  # Ensure no marble is already in start position
+                        if not any(m2.pos == 0 for m2 in active_player.list_marble):  # Ensure no marble is already in start position
                             actions.append(Action(card=card, pos_from=64, pos_to=0))
                     elif marble.pos >= 0 and card.rank.isdigit():
                         # Normal move for number cards
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
-            # Jack (J) card actions: Swapping marbles
+            # Jack (J) card logic: Swapping marbles
             if card.rank == 'J':
-                player_positions = [m.pos for m in player.list_marble if m.pos >= 0]
+                player_positions = [m.pos for m in active_player.list_marble if m.pos >= 0]
                 opponent_positions = []
 
                 # Collect opponent positions for swapping
-                for op in self.state.list_player:
-                    if op is not player:
-                        for om in op.list_marble:
-                            if om.pos >= 0 and not om.is_save:
-                                opponent_positions.append(om.pos)
+                for opponent in self.state.list_player:
+                    if opponent != active_player:  # Ensure it's an opponent
+                        for opp_marble in opponent.list_marble:
+                            if opp_marble.pos >= 0 and not opp_marble.is_save:  # Valid opponent marbles
+                                opponent_positions.append((opponent, opp_marble.pos))
 
-                # Swapping with opponents
+                # Add swaps with opponents
                 for p_pos in player_positions:
-                    for o_pos in opponent_positions:
-                        actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))
-                        actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))
+                    for _, o_pos in opponent_positions:
+                        actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))  # Player to opponent
+                        actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))  # Opponent to player
 
-                # If no opponents to swap with, swap within player's own marbles
+                # If no opponent swaps, allow swaps among player's own marbles
                 if not opponent_positions:
-                    for marble_1 in player.list_marble:
+                    for marble_1 in active_player.list_marble:
                         if marble_1.pos >= 0:
-                            for marble_2 in player.list_marble:
+                            for marble_2 in active_player.list_marble:
                                 if marble_2.pos >= 0 and marble_1 != marble_2:
                                     actions.append(Action(card=card, pos_from=marble_1.pos, pos_to=marble_2.pos))
                                     actions.append(Action(card=card, pos_from=marble_2.pos, pos_to=marble_1.pos))
@@ -261,6 +261,7 @@ class Dog(Game):
         }.values())
 
         return unique_actions
+
     
 
     def give_cards(self, num_cards: int) -> None:
@@ -326,8 +327,6 @@ class Dog(Game):
         return max(6 - (cnt_round - 1) % 5, 2)
 
 
-
-
     def apply_action(self, action: Optional[Action]) -> None:
         """Apply the given action to the game."""
         # Get the current player
@@ -346,7 +345,29 @@ class Dog(Game):
             player.list_card.remove(action.card)
             self.state.list_card_discard.append(action.card)
             print(f"JOKER swapped for {action.card_swap.rank} of {action.card_swap.suit}.")
+
+        # Handle JACK (J) swap action
+        elif action.card.rank == 'J' and action.pos_from is not None and action.pos_to is not None:
+            # Find the marbles at the specified positions
+            marble_from = next(
+                (m for m in player.list_marble if m.pos == action.pos_from), None
+            )
+            marble_to = next(
+                (m for op in self.state.list_player for m in op.list_marble if m.pos == action.pos_to), None
+            )
+
+            # Swap positions if valid marbles are found
+            if marble_from and marble_to:
+                marble_from.pos, marble_to.pos = marble_to.pos, marble_from.pos
+                print(f"Swapped marble at {action.pos_from} with marble at {action.pos_to}.")
+
+            # Remove the JACK card from the player's hand
+            player.list_card.remove(action.card)
+            self.state.list_card_discard.append(action.card)
+            self.state.card_active = None
+
         elif action.card in player.list_card:
+            # Handle normal card actions (e.g., number cards, A, K)
             if action.pos_from in (-1, 64) and action.pos_to is not None:  # Move out of Kennel
                 marble = next(m for m in player.list_marble if m.pos == -1)
                 marble.pos = action.pos_to
@@ -357,14 +378,14 @@ class Dog(Game):
                     if op is not player:
                         for om in op.list_marble:
                             if om.pos == action.pos_to:
-                                om.pos = 72
+                                om.pos = 72  # Send opponent marble back to Kennel
                                 om.is_save = False
 
             elif action.pos_from is not None and action.pos_to is not None:  # Normal move
                 marble = next(m for m in player.list_marble if m.pos == action.pos_from)
-                move =marble.pos = action.pos_to
+                move = marble.pos = action.pos_to
 
-                # Add finish move validation here
+                # Validate finish moves
                 if not self.valid_finish_move(marble, move):
                     raise ValueError("Invalid move to or within finish area.")
                 if self.finish_overtaking(marble, move):
@@ -372,9 +393,6 @@ class Dog(Game):
 
                 # Proceed with movement
                 marble.pos = action.pos_to
-
-
-
 
             # Track the active card and remove it from the player's hand
             self.state.card_active = action.card
@@ -389,8 +407,9 @@ class Dog(Game):
         self.state.card_active = None
         self.steps_used = None
 
-        # Add this line at the end of the function
+        # Move to the next active player
         self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
 
 
     def get_player_view(self, idx_player: int) -> GameState:
