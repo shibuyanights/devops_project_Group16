@@ -189,7 +189,7 @@ class Dog(Game):
                     if marble.pos == -1 and card.rank in ['A', 'K']:
                         if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
                             actions.append(Action(card=card, pos_from=64, pos_to=0))  # change pos_from 0->64 gj
-                    elif marble.pos >= 0 and card.rank.isdigit():
+                    elif marble.pos >= 0 and card.rank.isdigit():   	1
                         new_pos = (marble.pos + int(card.rank)) % 96
                         actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
@@ -272,6 +272,10 @@ class Dog(Game):
 
         # Add this line at the end of the function
         self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+    def get_player_view(self, idx_player: int) -> GameState:
+        """Get a masked view of the game state for the given player."""
+        return self.state
 
 
     def handle_joker(self, action: Action, player: PlayerState) -> None:
@@ -434,10 +438,6 @@ class Dog(Game):
     def remove_invalid_actions(self, actions: List[Action]) -> List[Action]:
         """Remove duplicate or invalid actions."""
         return list(set(actions))
-
-    def get_player_view(self, idx_player: int) -> GameState:
-        """Get a masked view of the game state for the given player."""
-        return self.state
 
 
     def start_new_round(self) -> None:
