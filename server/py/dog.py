@@ -150,6 +150,10 @@ class Dog(Game):
     def set_state(self, state: GameState) -> None:
         """Set the game to a given state."""
         self.state = state
+        
+    def get_state(self) -> GameState:
+        """Get the complete, unmasked game state."""
+        return self.state
 
 
     def apply_action(self, action: Optional[Action]) -> None:
@@ -424,10 +428,6 @@ class Dog(Game):
 
     def get_player_view(self, idx_player: int) -> GameState:
         """Get a masked view of the game state for the given player."""
-        return self.state
-
-    def get_state(self) -> GameState:
-        """Get the complete, unmasked game state."""
         return self.state
 
     def print_state(self) -> None:
