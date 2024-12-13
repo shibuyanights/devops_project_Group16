@@ -170,6 +170,30 @@ class Dog(Game):
             print(f"  Cards: {[card.rank for card in player.list_card]}")
             print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
+    def valid_finish_move(self, marble: Marble, move: int) -> bool:
+        """
+        Check if the move keeps the marble within the finish area bounds.
+
+        """
+        if marble.pos >= 92:
+            next_pos = marble.pos + move
+            return 92 <= next_pos < 96  # Within finish range
+        return True  # Normal moves are always valid
+
+
+    def finish_overtaking(self, marble: Marble, move: int) -> bool:
+        """
+        Check if the move causes the marble to overtake another marble in the finish area.
+
+        """
+        if marble.pos >= 92:
+            next_pos = marble.pos + move
+            for m in self.state.list_player[self.state.idx_player_active].list_marble:
+                if next_pos > m.pos >= 92:
+                    return True
+        return False
+
+
 
 
     def get_list_action(self) -> List[Action]:
@@ -271,7 +295,19 @@ class Dog(Game):
 
             elif action.pos_from is not None and action.pos_to is not None:  # Normal move
                 marble = next(m for m in player.list_marble if m.pos == action.pos_from)
+                move =marble.pos = action.pos_to
+
+                # Add finish move validation here
+                if not self.valid_finish_move(marble, move):
+                    raise ValueError("Invalid move to or within finish area.")
+                if self.finish_overtaking(marble, move):
+                    raise ValueError("Overtaking in the finish area is not allowed.")
+
+                # Proceed with movement
                 marble.pos = action.pos_to
+
+
+
 
             # Track the active card and remove it from the player's hand
             self.state.card_active = action.card
@@ -347,30 +383,33 @@ class Dog(Game):
 
     def deal_cards(self) -> None:
         """Distribute cards to all players."""
-        num_cards = (6 - (self.state.cnt_round - 1) % 5,2)  # Calculate cards per round
+        # Calculate the number of cards to deal to each player
+        num_cards = max(6 - (self.state.cnt_round - 1) % 5, 2)  # Cards reduce each round but never below 2
 
         # Debug: Check card piles before dealing
         print(f"Before dealing: {len(self.state.list_card_draw)} cards in draw pile, {len(self.state.list_card_discard)} in discard pile.")
 
-        # Replenish draw pile if needed
-        if len(self.state.list_card_draw) < num_cards * self.state.cnt_player:
-            print("Replenishing draw pile from discard pile.")
+        # Replenish the draw pile if there aren't enough cards
+        total_needed_cards = num_cards * self.state.cnt_player
+        if len(self.state.list_card_draw) < total_needed_cards:
+            print("Not enough cards in the draw pile. Replenishing from discard pile.")
+            # Add discard pile back to the draw pile and shuffle
             self.state.list_card_draw.extend(self.state.list_card_discard)
             random.shuffle(self.state.list_card_draw)
             self.state.list_card_discard.clear()
 
-        # Distribute cards
+        # If there are still not enough cards after replenishment, raise an error
+        if len(self.state.list_card_draw) < total_needed_cards:
+            raise ValueError("Not enough cards available in the deck to deal to all players.")
+
+        # Deal cards to players
         for player in self.state.list_player:
-            player.list_card.clear()  # Reset player's card list
-            if len(self.state.list_card_draw) >= num_cards:
-                player.list_card = self.state.list_card_draw[:num_cards]
-                self.state.list_card_draw = self.state.list_card_draw[num_cards:]
-            else:
-                raise ValueError("Not enough cards in the draw pile to deal!")
+            player.list_card.clear()  # Clear the player's hand
+            player.list_card = self.state.list_card_draw[:num_cards]
+            self.state.list_card_draw = self.state.list_card_draw[num_cards:]  # Remove dealt cards from draw pile
 
         # Debug: Check card piles after dealing
         print(f"After dealing: {len(self.state.list_card_draw)} cards remain in draw pile, {len(self.state.list_card_discard)} in discard pile.")
-
 
     def check_endgame_condition(self) -> None:
         """Check if the game has reached its end condition."""
