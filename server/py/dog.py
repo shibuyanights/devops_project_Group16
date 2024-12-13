@@ -164,6 +164,64 @@ class Dog(Game):
             print(f"  Cards: {[card.rank for card in player.list_card]}")
             print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
+
+   def get_list_action(self) -> List[Action]:
+        """Get a list of possible actions for the active player."""
+        player = self.state.list_player[self.state.idx_player_active]
+        actions: List[Action] = []
+
+        for card in player.list_card:
+            if card.rank == 'JKR':
+                actions.append(Action(card=card, pos_from=64, pos_to=0))
+                if self.state.cnt_round == 0:
+                    for suit in LIST_SUIT:
+                        actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='A')))
+                        actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='K')))
+                else:
+                    for suit in LIST_SUIT:
+                        for rank in LIST_RANK[:-1]:  # Exclude 'JKR'
+                            actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank=rank)))
+            else:
+                for marble in player.list_marble:
+                    if marble.is_save and marble.pos == 0:  # Start position and "is_save"
+                        continue # Skip this marble as it blocks overtaking
+
+                    if marble.pos == -1 and card.rank in ['A', 'K']:
+                        if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
+                            actions.append(Action(card=card, pos_from=64, pos_to=0))  # change pos_from 0->64 gj
+                    elif marble.pos >= 0 and card.rank.isdigit():
+                        new_pos = (marble.pos + int(card.rank)) % 96
+                        actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
+
+            # GJ problem 21
+            if card.rank == 'J':
+                player_positions = [m.pos for m in player.list_marble if m.pos >= 0]
+
+                opponent_positions = []
+                for op in self.state.list_player:
+                    if op is not player:
+                        for om in op.list_marble:
+                            if om.pos >= 0 and not om.is_save:
+                                opponent_positions.append(om.pos)
+
+                # Create swap actions
+                if opponent_positions:
+                    # Swapping with opponents
+                    for p_pos in player_positions:
+                        for o_pos in opponent_positions:
+                            actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))
+                            actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))
+                else:
+                    # Swapping within the same player's marbles
+                    for marble_1 in player.list_marble:
+                        if marble_1.pos >= 0:
+                            for marble_2 in player.list_marble:
+                                if marble_2.pos >= 0 and marble_1 != marble_2:
+                                    actions.append(Action(card=card, pos_from=marble_1.pos, pos_to=marble_2.pos))
+                                    actions.append(Action(card=card, pos_from=marble_2.pos, pos_to=marble_1.pos))
+
+        return self.remove_invalid_actions(actions)
+
     def apply_action(self, action: Optional[Action]) -> None:
         """Apply the given action to the game."""
         # If no action is provided, reset the state and skip the turn
@@ -362,63 +420,6 @@ class Dog(Game):
             print("Team 2 (Player 2 & Player 4) has won the game!")
             self.state.phase = GamePhase.FINISHED
 
-
-    def get_list_action(self) -> List[Action]:
-        """Get a list of possible actions for the active player."""
-        player = self.state.list_player[self.state.idx_player_active]
-        actions: List[Action] = []
-
-        for card in player.list_card:
-            if card.rank == 'JKR':
-                actions.append(Action(card=card, pos_from=64, pos_to=0))
-                if self.state.cnt_round == 0:
-                    for suit in LIST_SUIT:
-                        actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='A')))
-                        actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank='K')))
-                else:
-                    for suit in LIST_SUIT:
-                        for rank in LIST_RANK[:-1]:  # Exclude 'JKR'
-                            actions.append(Action(card=card, pos_from=None, pos_to=None, card_swap=Card(suit=suit, rank=rank)))
-            else:
-                for marble in player.list_marble:
-                    if marble.is_save and marble.pos == 0:  # Start position and "is_save"
-                        continue # Skip this marble as it blocks overtaking
-
-                    if marble.pos == -1 and card.rank in ['A', 'K']:
-                        if not any(m2.pos == 0 for m2 in player.list_marble):  # gj test_007
-                            actions.append(Action(card=card, pos_from=64, pos_to=0))  # change pos_from 0->64 gj
-                    elif marble.pos >= 0 and card.rank.isdigit():
-                        new_pos = (marble.pos + int(card.rank)) % 96
-                        actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
-
-            # GJ problem 21
-            if card.rank == 'J':
-                player_positions = [m.pos for m in player.list_marble if m.pos >= 0]
-
-                opponent_positions = []
-                for op in self.state.list_player:
-                    if op is not player:
-                        for om in op.list_marble:
-                            if om.pos >= 0 and not om.is_save:
-                                opponent_positions.append(om.pos)
-
-                # Create swap actions
-                if opponent_positions:
-                    # Swapping with opponents
-                    for p_pos in player_positions:
-                        for o_pos in opponent_positions:
-                            actions.append(Action(card=card, pos_from=p_pos, pos_to=o_pos))
-                            actions.append(Action(card=card, pos_from=o_pos, pos_to=p_pos))
-                else:
-                    # Swapping within the same player's marbles
-                    for marble_1 in player.list_marble:
-                        if marble_1.pos >= 0:
-                            for marble_2 in player.list_marble:
-                                if marble_2.pos >= 0 and marble_1 != marble_2:
-                                    actions.append(Action(card=card, pos_from=marble_1.pos, pos_to=marble_2.pos))
-                                    actions.append(Action(card=card, pos_from=marble_2.pos, pos_to=marble_1.pos))
-
-        return self.remove_invalid_actions(actions)
 
     def ensure_player1_marble_at_12(self) -> None:
         """Ensure Player 1 always has a marble at position 12."""
