@@ -147,6 +147,11 @@ class Dog(Game):
         # Update phase to RUNNING
         self.state.phase = GamePhase.RUNNING
 
+    def set_state(self, state: GameState) -> None:
+        """Set the game to a given state."""
+        self.state = state
+
+
     def apply_action(self, action: Optional[Action]) -> None:
         """Apply the given action to the game."""
         # If no action is provided, reset the state and skip the turn
@@ -420,10 +425,6 @@ class Dog(Game):
     def get_player_view(self, idx_player: int) -> GameState:
         """Get a masked view of the game state for the given player."""
         return self.state
-
-    def set_state(self, state: GameState) -> None:
-        """Set the game to a given state."""
-        self.state = state
 
     def get_state(self) -> GameState:
         """Get the complete, unmasked game state."""
