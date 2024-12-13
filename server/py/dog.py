@@ -347,7 +347,7 @@ class Dog(Game):
 
     def deal_cards(self) -> None:
         """Distribute cards to all players."""
-        num_cards = 6 - (self.state.cnt_round - 1) % 5  # Calculate cards per round
+        num_cards = (6 - (self.state.cnt_round - 1) % 5,2)  # Calculate cards per round
 
         # Debug: Check card piles before dealing
         print(f"Before dealing: {len(self.state.list_card_draw)} cards in draw pile, {len(self.state.list_card_discard)} in discard pile.")
