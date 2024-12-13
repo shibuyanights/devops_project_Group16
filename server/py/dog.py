@@ -268,6 +268,9 @@ class Dog(Game):
         Distribute a specific number of cards to all players.
         Replenishes the draw pile if necessary.
         """
+        # Debug: Expected number of cards
+        print(f"Attempting to deal {num_cards} cards to each of {self.state.cnt_player} players.")
+
         # Check if there are enough cards in the draw pile, replenish if needed
         total_needed_cards = num_cards * self.state.cnt_player
         if len(self.state.list_card_draw) < total_needed_cards:
@@ -278,12 +281,13 @@ class Dog(Game):
 
         # Ensure we have enough cards after replenishment
         if len(self.state.list_card_draw) < total_needed_cards:
-            raise ValueError("Not enough cards available in the deck to deal to all players.")
+            raise ValueError(f"Not enough cards to deal {num_cards} to each player. Only {len(self.state.list_card_draw)} cards available.")
 
         # Distribute cards to each player
         for player in self.state.list_player:
             player.list_card = [self.state.list_card_draw.pop() for _ in range(num_cards)]
 
+        # Debug: Log results
         print(f"Dealt {num_cards} cards to each player. {len(self.state.list_card_draw)} cards remain in draw pile.")
 
 
@@ -303,13 +307,16 @@ class Dog(Game):
             self.state.cnt_round += 1
 
             # Calculate the number of cards for the new round
-            num_cards = max(6 - (self.state.cnt_round - 1), 1)
+            num_cards = self.calculate_card(self.state.cnt_round)
 
             # Distribute cards for the new round
             self.give_cards(num_cards)
 
             # Ensure the active player is not the same as the starting player
             self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+        print(f"Round {self.state.cnt_round} completed. Next active player: Player {self.state.idx_player_active + 1}.")
+
 
     def calculate_card(self, cnt_round: int) -> int:
         """
