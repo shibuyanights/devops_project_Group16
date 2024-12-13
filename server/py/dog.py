@@ -150,11 +150,19 @@ class Dog(Game):
     def set_state(self, state: GameState) -> None:
         """Set the game to a given state."""
         self.state = state
-        
+
     def get_state(self) -> GameState:
         """Get the complete, unmasked game state."""
         return self.state
-
+    
+    def print_state(self) -> None:
+        """Print the current game state."""
+        print(f"Phase: {self.state.phase}")
+        print(f"Round: {self.state.cnt_round}")
+        for player in self.state.list_player:
+            print(f"{player.name}:")
+            print(f"  Cards: {[card.rank for card in player.list_card]}")
+            print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
     def apply_action(self, action: Optional[Action]) -> None:
         """Apply the given action to the game."""
@@ -430,14 +438,6 @@ class Dog(Game):
         """Get a masked view of the game state for the given player."""
         return self.state
 
-    def print_state(self) -> None:
-        """Print the current game state."""
-        print(f"Phase: {self.state.phase}")
-        print(f"Round: {self.state.cnt_round}")
-        for player in self.state.list_player:
-            print(f"{player.name}:")
-            print(f"  Cards: {[card.rank for card in player.list_card]}")
-            print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
     def start_new_round(self) -> None:
         """Start a new round in the game."""
