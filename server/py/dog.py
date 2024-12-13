@@ -262,16 +262,35 @@ class Dog(Game):
 
         return unique_actions
 
+
+
+    def impossible_action(self) -> None:
+        """
+        Handle the case when no action is possible.
+        This progresses the game state to the next active player or the next round.
+        """
+        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+        if self.state.idx_player_active == self.state.idx_player_started:
+            
+            self.state.cnt_round += 1
+
+            num_cards = self._calculate_num_card(self.state.cnt_round)
+            self._distribute_cards(num_cards)
+
+
+
     def apply_action(self, action: Optional[Action]) -> None:
         """Apply the given action to the game."""
-        # If no action is provided, reset the state and skip the turn
-        if action is None:
-            print("No action provided. Skipping this turn.")
-            self.state.card_active = None
-            self.steps_used = None
-            return
-
+        # Get the current player
         player = self.state.list_player[self.state.idx_player_active]
+
+        # If no action is provided, reset the state and skip the turn
+        if action is None:  # Fold cards if no action is possible
+            print(f"No valid action for {player.name}. Folding cards.")
+            player.list_card = []  # Clear the player's cards
+            self.impossible_action()  # Progress the game state
+            return
 
         # Handle JOKER swap action
         if action.card.rank == 'JKR' and action.card_swap:
