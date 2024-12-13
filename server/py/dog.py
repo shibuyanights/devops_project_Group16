@@ -275,8 +275,39 @@ class Dog(Game):
             
             self.state.cnt_round += 1
 
-            num_cards = self._calculate_num_card(self.state.cnt_round)
-            self._distribute_cards(num_cards)
+            num_cards = self.calculate_card(self.state.cnt_round)
+            self.give_cards(num_cards)
+
+
+    def calculate_card(self, cnt_round: int) -> int:
+        """
+        Calculate the number of cards to deal based on the round number.
+        """
+        # Assuming rounds 1-5 reduce card numbers, minimum of 2 cards per round
+        return max(6 - (cnt_round - 1) % 5, 2)
+
+    def give_cards(self, num_cards: int) -> None:
+        """
+        Distribute a specific number of cards to all players.
+        Replenishes the draw pile if necessary.
+        """
+        # Check if there are enough cards in the draw pile, replenish if needed
+        total_needed_cards = num_cards * self.state.cnt_player
+        if len(self.state.list_card_draw) < total_needed_cards:
+            print("Not enough cards in the draw pile. Replenishing from discard pile.")
+            self.state.list_card_draw.extend(self.state.list_card_discard)
+            random.shuffle(self.state.list_card_draw)
+            self.state.list_card_discard.clear()
+
+        # Ensure we have enough cards after replenishment
+        if len(self.state.list_card_draw) < total_needed_cards:
+            raise ValueError("Not enough cards available in the deck to deal to all players.")
+
+        # Distribute cards to each player
+        for player in self.state.list_player:
+            player.list_card = [self.state.list_card_draw.pop() for _ in range(num_cards)]
+
+        print(f"Dealt {num_cards} cards to each player. {len(self.state.list_card_draw)} cards remain in draw pile.")
 
 
 
