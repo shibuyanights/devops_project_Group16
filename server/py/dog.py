@@ -114,23 +114,32 @@ class GameState(BaseModel):
 class Dog(Game):
     def __init__(self) -> None:
         """Initialize the game with default values."""
-        # Initialize the game state
-        self.state = GameState(
+        self.state = GameState(  # type: ignore #type:unused-ignore
+            phase=GamePhase.RUNNING,
+            cnt_round=1,
+            bool_card_exchanged=False,
+            idx_player_started=0,
+            idx_player_active=0,
             list_player=[
                 PlayerState(
-                    name=f"Player {i+1}",
+                    name=f"Player {i + 1}",
                     list_card=[],
-                    list_marble=[Marble(pos=-1, is_save=False) for _ in range(4)]  # -1 for Kennel
+                    list_marble=[
+                        Marble(pos=-1, is_save=False) for _ in range(4)  # Initialize 4 marbles in the "kennel"
+                    ]
                 ) for i in range(4)
             ],
-            list_card_draw=random.sample(GameState.LIST_CARD, len(GameState.LIST_CARD)),
+            list_card_draw=GameState.LIST_CARD.copy(),
             list_card_discard=[],
+            card_active=None
         )
 
         # Assign the starting player
         self.state.idx_player_started = random.randint(0, self.state.cnt_player - 1)
-        
         self.state.idx_player_active = self.state.idx_player_started
+
+        # Initialize steps_used as an attribute of Dog
+        self.steps_used = None
 
         # Deal cards to players
         self.deal_cards()
