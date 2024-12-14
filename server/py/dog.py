@@ -170,6 +170,132 @@ class Dog(Game):
             print(f"  Cards: {[card.rank for card in player.list_card]}")
             print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
+
+    def create_card_swap_moves(self, player: PlayerState) -> List[Action]:
+        """Create actions for exchanging cards."""
+        unique_cards = {card.rank + card.suit: card for card in player.list_card}.values()
+        return [Action(card=card) for card in unique_cards]
+
+    def process_card_exchange(self, player: PlayerState, action: Action) -> None:
+        """Handle the card exchange logic."""
+        exchange_partner_index = (self.state.idx_player_active + 2) % self.state.cnt_player
+        exchange_partner = self.state.list_player[exchange_partner_index]
+
+        if action and action.card in player.list_card:
+            player.list_card.remove(action.card)
+            exchange_partner.list_card.append(action.card)
+
+        # Move to the next player after exchanging cards
+        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+        if self.state.idx_player_active == self.state.idx_player_started:
+            self.state.bool_card_exchanged = True
+
+    def create_moves_from_kennel(self, player: PlayerState) -> List[Action]:
+        """Create actions for moving marbles out of the kennel."""
+        start_position = 16 * self.state.list_player.index(player)  # Calculate starting position
+        kennel_moves = []
+
+        for card in player.list_card:
+            if card.rank in ["A", "K", "JKR"]:  # Only these cards can start marbles
+                for marble in player.list_marble:
+                    if marble.pos == -1:  # Marble is still in the kennel
+                        kennel_moves.append(Action(card=card, pos_from=-1, pos_to=start_position))
+        return kennel_moves
+
+    def generate_joker_options(self, player: PlayerState) -> List[Action]:
+        """Generate all possible actions involving Joker cards."""
+        joker_actions = []
+        joker_cards = [card for card in player.list_card if card.rank == "JKR"]
+
+        for joker in joker_cards:
+            for suit in GameState.LIST_SUIT:
+                for rank in GameState.LIST_RANK[:-1]:  # Exclude "JKR" itself
+                    joker_actions.append(
+                        Action(card=joker, card_swap=Card(suit=suit, rank=rank))
+                    )
+        return joker_actions
+
+    def validate_marble_movement(self, start_pos: int, end_pos: int, is_safe: bool) -> bool:
+        """Check if moving from start_pos to end_pos overtakes another marble."""
+        for player in self.state.list_player:
+            for marble in player.list_marble:
+                if is_safe:
+                    continue  # Ignore unsafe marbles
+                if start_pos < end_pos:
+                    if start_pos < marble.pos <= end_pos:
+                        return False  # Invalid overtaking
+                else:
+                    if marble.pos > start_pos or marble.pos <= end_pos:
+                        return False  # Overtaking when crossing position 0
+        return True
+
+    def finalize_turn(self):
+        """Finalize the current player's turn."""
+        self.state.card_active = None
+        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+        # If the round ends, increment the round counter and deal new cards
+        if self.state.idx_player_active == self.state.idx_player_started:
+            self.state.cnt_round += 1
+            self.distribute_round_cards()
+
+    def generate_player_actions(self) -> List[Action]:
+        """Generate all possible actions for the active player."""
+        active_player = self.state.list_player[self.state.idx_player_active]
+        possible_actions = []
+
+        # Add card exchange moves if needed
+        if not self.state.bool_card_exchanged:
+            return self.create_card_swap_moves(active_player)
+
+        # Add moves for marbles in the kennel
+        possible_actions.extend(self.create_moves_from_kennel(active_player))
+
+        # Add Joker-specific actions
+        possible_actions.extend(self.generate_joker_options(active_player))
+
+        # Add normal marble movement actions
+        for marble in active_player.list_marble:
+            if marble.pos >= 0:  # Marble is on the board
+                for card in active_player.list_card:
+                    move_distances = MOVES[card.rank]
+                    for move in move_distances:
+                        destination = (marble.pos + move) % 96
+                        if self.validate_marble_movement(marble.pos, destination, marble.is_save):
+                            possible_actions.append(
+                                Action(card=card, pos_from=marble.pos, pos_to=destination)
+                            )
+        return possible_actions
+
+    def send_opponent_marble_home(self, position: int):
+        """Send an opponent's marble back to the kennel if it occupies the target position."""
+        for player in self.state.list_player:
+            for marble in player.list_marble:
+                if marble.pos == position:
+                    kennel_position = KennelNumbers[player.colour].value[0]
+                    marble.pos = kennel_position
+                    marble.is_save = False
+
+    def check_for_game_winner(self):
+        """Check if the game has a winner."""
+        team1 = [self.state.list_player[0], self.state.list_player[2]]
+        team2 = [self.state.list_player[1], self.state.list_player[3]]
+
+        if all(marble.pos in range(92, 96) for player in team1 for marble in player.list_marble):
+            self.state.phase = GamePhase.FINISHED
+            print("Team 1 wins!")
+        elif all(marble.pos in range(92, 96) for player in team2 for marble in player.list_marble):
+            self.state.phase = GamePhase.FINISHED
+            print("Team 2 wins!")
+
+
+
+
+
+
+
+
     def valid_finish_move(self, marble: Marble, move: int) -> bool:
         """
         Check if the move keeps the marble within the finish area bounds.
@@ -244,6 +370,12 @@ class Dog(Game):
         """Get a list of possible actions for the active player."""
         active_player = self.state.list_player[self.state.idx_player_active]  # Active player
         actions: List[Action] = []
+
+        # Generate card swap actions if cards have not been exchanged
+        if not self.state.bool_card_exchanged:
+            for card in active_player.list_card:
+                actions.append(Action(card=card))  # Add card swap actions
+            return actions
 
         for card in active_player.list_card:
             if card.rank == 'JKR':
@@ -379,13 +511,17 @@ class Dog(Game):
         """Apply the given action to the game."""
         # Get the current player
         player = self.state.list_player[self.state.idx_player_active]
-        
 
         # If no action is provided, reset the state and skip the turn
         if action is None:  # Fold cards if no action is possible
             print(f"No valid action for {player.name}. Folding cards.")
             player.list_card = []  # Clear the player's cards
             self.impossible_action()  # Progress the game state
+            return
+
+        # NEW: Handle card exchange (if it's an exchange action)
+        if not self.state.bool_card_exchanged:
+            self.process_card_exchange(player, action)  # Handle the card exchange
             return
 
         # Handle JOKER swap action
@@ -415,8 +551,8 @@ class Dog(Game):
             self.state.list_card_discard.append(action.card)
             self.state.card_active = None
 
+        # Handle normal card actions (e.g., number cards, A, K)
         elif action.card in player.list_card:
-            # Handle normal card actions (e.g., number cards, A, K)
             if action.pos_from in (-1, 64) and action.pos_to is not None:  # Move out of Kennel
                 marble = next(m for m in player.list_marble if m.pos == -1)
                 marble.pos = action.pos_to
@@ -448,16 +584,16 @@ class Dog(Game):
             player.list_card.remove(action.card)
             self.state.list_card_discard.append(action.card)
 
+        # NEW: Check if the game has ended
+        self.check_for_game_winner()
+
         # Enforce the condition: Player 1 must have a marble on position 12
         if self.state.idx_player_active == 0:
             self.ensure_player1_marble_at_12()
 
-        # Reset card_active and steps_used after processing the action
-        self.state.card_active = None
-        self.steps_used = None
+        # NEW: Reset the turn state and move to the next player
+        self.finalize_turn()
 
-        # Move to the next active player
-        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
 
 
 
