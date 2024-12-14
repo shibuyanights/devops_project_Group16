@@ -118,13 +118,17 @@ class GameState(BaseModel):
 
 
 class Dog(Game):
-    # Add starting positions as a class variable
-    STARTING_POSITIONS: ClassVar[dict] = {
-        0: 0,    # Player 1 starts at position 0
-        1: 16,   # Player 2 starts at position 16
-        2: 32,   # Player 3 starts at position 32
-        3: 48    # Player 4 starts at position 48
+    """Dog game implementation"""
+
+    # Define KENNEL_POSITIONS
+    KENNEL_POSITIONS = {
+        0: [64, 65, 66, 67],  # Blue
+        1: [72, 73, 74, 75],  # Green
+        2: [80, 81, 82, 83],  # Red
+        3: [88, 89, 90, 91],  # Yellow
     }
+
+
     def __init__(self) -> None:
         """Initialize the game with default values."""
         self.state = GameState(  # type: ignore #type:unused-ignore
@@ -177,6 +181,30 @@ class Dog(Game):
             print(f"  Cards: {[card.rank for card in player.list_card]}")
             print(f"  Marbles: {[marble.pos for marble in player.list_marble]}")
 
+    def _check_if_save_marble_between_current_and_destination(self, current_position: int, destination: int) -> bool:
+        """
+        Check if a marble with is_save=True is blocking the path between the current position and the destination.
+
+        Args:
+            current_position (int): The current position of the marble.
+            destination (int): The intended destination position of the marble.
+
+        Returns:
+            bool: True if a blocking marble is found; False otherwise.
+        """
+        for player in self.state.list_player:
+            for marble in player.list_marble:
+                if marble.is_save and marble.pos != -1:  # Only consider marbles in valid positions and marked as "safe"
+                    if current_position < destination:  # Normal forward move
+                        if current_position < marble.pos <= destination:
+                            return True
+                    else:  # Circular move across position 0
+                        if marble.pos > current_position or marble.pos <= destination:
+                            return True
+        return False
+
+
+
 
     def create_card_swap_moves(self, player: PlayerState) -> List[Action]:
         """Create actions for exchanging cards."""
@@ -226,18 +254,39 @@ class Dog(Game):
         return joker_actions
 
     def validate_marble_movement(self, start_pos: int, end_pos: int, is_safe: bool) -> bool:
-        """Check if moving from start_pos to end_pos overtakes another marble."""
-        for player in self.state.list_player:
-            for marble in player.list_marble:
-                if is_safe:
-                    continue  # Ignore unsafe marbles
-                if start_pos < end_pos:
-                    if start_pos < marble.pos <= end_pos:
-                        return False  # Invalid overtaking
-                else:
-                    if marble.pos > start_pos or marble.pos <= end_pos:
-                        return False  # Overtaking when crossing position 0
-        return True
+        """
+        Check if moving from start_pos to end_pos overtakes another marble
+        or exceeds the finish bounds.
+
+        Args:
+            start_pos (int): The starting position of the marble.
+            end_pos (int): The destination position of the marble.
+            is_safe (bool): Whether the marble is in a safe state (e.g., moved out of the kennel).
+
+        Returns:
+            bool: True if the move is valid; False otherwise.
+        """
+        # Check that the move stays within the finish bounds (positions 92-95)
+        if start_pos >= 92:
+            if end_pos >= 96:  # Exceeding the finish area
+                return False
+            if start_pos <= end_pos < 96:  # Valid within finish bounds
+                return True
+
+        # Validate movement with respect to other marbles
+        for player in self.state.list_player:  # Check all players
+            for marble in player.list_marble:  # Check all marbles of each player
+                if marble.is_save and marble.pos != -1:  # Only consider safe marbles on the board
+                    # Check overtaking logic
+                    if start_pos < end_pos:  # Moving forward
+                        if start_pos < marble.pos <= end_pos:
+                            return False  # Invalid overtaking
+                    else:  # Moving forward across position 0
+                        if marble.pos > start_pos or marble.pos <= end_pos:
+                            return False  # Invalid overtaking across 0
+        return True  # Valid move
+
+
 
     def finalize_turn(self):
         """Finalize the current player's turn."""
@@ -348,31 +397,44 @@ class Dog(Game):
         return actions
 
 
-    def _check_overtaking(self, current_pos: int, dest_pos: int, is_safe: bool) -> bool:
+    def _check_overtaking(
+        self, current_pos: int, dest_pos: int, is_safe: bool, player: Optional[PlayerState] = None
+    ) -> bool:
         """
-        Check if a marble overtakes another marble in unsafe conditions.
+        Check if a marble overtakes another marble in unsafe conditions or moves to a blocked position.
 
         Args:
             current_pos (int): The current position of the marble.
             dest_pos (int): The destination position of the marble.
-            is_safe (bool): Whether the marble is in a safe state (e.g., moved out of kennel).
+            is_safe (bool): Whether the marble is in a safe state (e.g., moved out of the kennel).
+            player (Optional[PlayerState]): The player whose marble is being moved. Defaults to the active player.
 
         Returns:
-            bool: True if overtaking happens in unsafe conditions; otherwise False.
+            bool: True if overtaking happens in unsafe conditions or moving to a blocked position; False otherwise.
         """
-        for player_index, player in enumerate(self.state.list_player):  # Check all players
-            for marble in player.list_marble:  # Check all marbles of each player
-                if marble.is_save:  # Only consider safe marbles
-                    # Prevent crossing other players' starting positions
-                    other_start = Dog.STARTING_POSITIONS[player_index]
-                    if current_pos < dest_pos:  # Standard case
-                        if current_pos < marble.pos <= dest_pos or other_start == dest_pos:
-                            return True
-                    else:  # Case where move crosses the starting point (position 0)
-                        if marble.pos > current_pos or marble.pos <= dest_pos or other_start == dest_pos:
-                            return True
-        return False
+        # If no player is provided, use the active player
+        if player is None:
+            player = self.state.list_player[self.state.idx_player_active]
 
+        for other_player in self.state.list_player:  # Check all players
+            for marble in other_player.list_marble:  # Check all marbles of each player
+                if marble.is_save and marble.pos != -1:  # Only consider safe marbles on the board
+                    if marble.pos == dest_pos:
+                        # Block movement if another marble occupies the destination and is marked as "is_save=True"
+                        return True
+                    if other_player == player:  # Own marble
+                        # Blocking logic for own marbles
+                        if current_pos < dest_pos and current_pos < marble.pos <= dest_pos:
+                            return True
+                        elif current_pos > dest_pos and (marble.pos > current_pos or marble.pos <= dest_pos):
+                            return True
+                    else:  # Opponent marble
+                        # Allow overtaking in certain scenarios
+                        if current_pos < dest_pos and current_pos < marble.pos <= dest_pos:
+                            return False
+                        elif current_pos > dest_pos and (marble.pos > current_pos or marble.pos <= dest_pos):
+                            return False
+        return False
 
 
 
@@ -414,9 +476,12 @@ class Dog(Game):
                         # Normal move for number cards
                         new_pos = (marble.pos + int(card.rank)) % 96
 
-                        # Check overtaking before adding this move
-                        if not self._check_overtaking(marble.pos, new_pos, marble.is_save):
-                            actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
+                        # **Check blocking before appending**
+                        if self._check_if_save_marble_between_current_and_destination(marble.pos, new_pos):
+                            continue  # Skip this move if blocked
+
+                        # Add valid action
+                        actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
             # Jack (J) card logic: Swapping marbles
             if card.rank == 'J':
