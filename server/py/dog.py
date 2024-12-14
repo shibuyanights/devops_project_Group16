@@ -193,6 +193,50 @@ class Dog(Game):
                     return True
         return False
 
+    def _generate_kennel_and_start_actions(self, player: PlayerState) -> List[Action]:
+        start_pos = 16 * self.state.list_player.index(player)  # Compute player's start position
+        if marble.pos == -1:
+            for card in player.list_card:
+                if card.rank in ["A", "K", "JKR"]:
+                    actions.append(Action(card=card, pos_from=-1, pos_to=start_pos))
+
+
+        # Check for marbles in the kennel
+        marbles_in_kennel = [marble for marble in player.list_marble if marble.pos == -1]
+
+        # Generate actions to move marbles out of the kennel
+        for marble in marbles_in_kennel:
+            for card in player.list_card:
+                if card.rank in ['A', 'K', 'JKR']:  # Aces, Kings, or Jokers can move marbles out
+                    actions.append(Action(card=card, pos_from=-1, pos_to=start_pos))
+
+        return actions
+
+
+    def _check_overtaking(self, current_pos: int, dest_pos: int, is_safe: bool) -> bool:
+        """
+        Check if a marble overtakes another marble in unsafe conditions.
+
+        Args:
+            current_pos (int): The current position of the marble.
+            dest_pos (int): The destination position of the marble.
+            is_safe (bool): Whether the marble is in a safe state (e.g., moved out of kennel).
+
+        Returns:
+            bool: True if overtaking happens in unsafe conditions; otherwise False.
+        """
+        for player in self.state.list_player:  # Check all players
+            for marble in player.list_marble:  # Check all marbles of each player
+                if marble.is_save:  # Only consider safe marbles
+                    # Handle overtaking logic for circular board
+                    if current_pos < dest_pos:  # Standard case
+                        if current_pos < marble.pos <= dest_pos:
+                            return True
+                    else:  # Case where move crosses the starting point (position 0)
+                        if marble.pos > current_pos or marble.pos <= dest_pos:
+                            return True
+        return False
+
 
 
 
@@ -226,7 +270,10 @@ class Dog(Game):
                     elif marble.pos >= 0 and card.rank.isdigit():
                         # Normal move for number cards
                         new_pos = (marble.pos + int(card.rank)) % 96
-                        actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
+
+                        # Check overtaking before adding this move
+                        if not self._check_overtaking(marble.pos, new_pos, marble.is_save):
+                            actions.append(Action(card=card, pos_from=marble.pos, pos_to=new_pos))
 
             # Jack (J) card logic: Swapping marbles
             if card.rank == 'J':
@@ -261,6 +308,7 @@ class Dog(Game):
         }.values())
 
         return unique_actions
+
 
     
 
@@ -331,6 +379,7 @@ class Dog(Game):
         """Apply the given action to the game."""
         # Get the current player
         player = self.state.list_player[self.state.idx_player_active]
+        
 
         # If no action is provided, reset the state and skip the turn
         if action is None:  # Fold cards if no action is possible
