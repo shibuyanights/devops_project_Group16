@@ -381,7 +381,9 @@ class Dog(Game):
         for player in self.state.list_player:
             for marble in player.list_marble:
                 if marble.pos == position:
-                    kennel_position = KennelNumbers[player.colour].value[0]
+                    opponent_index = self.state.list_player.index(player)
+                    kennel_position = Dog.KENNEL_POSITIONS[opponent_index][0]
+
                     marble.pos = kennel_position
                     marble.is_save = False
 
