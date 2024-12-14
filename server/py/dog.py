@@ -129,6 +129,23 @@ class Dog(Game):
     }
 
 
+    # Define FINISH_POSITIONS
+    FINISH_POSITIONS = {
+        0: [68, 69, 70, 71],  # Blue
+        1: [76, 77, 78, 79],  # Green
+        2: [84, 85, 86, 87],  # Red
+        3: [92, 93, 94, 95],  # Yellow
+    }
+
+
+
+
+
+
+
+
+
+
     def __init__(self) -> None:
         """Initialize the game with default values."""
         self.state = GameState(  # type: ignore #type:unused-ignore
