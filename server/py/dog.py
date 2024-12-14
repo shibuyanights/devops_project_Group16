@@ -118,6 +118,13 @@ class GameState(BaseModel):
 
 
 class Dog(Game):
+    # Add starting positions as a class variable
+    STARTING_POSITIONS: ClassVar[dict] = {
+        0: 0,    # Player 1 starts at position 0
+        1: 16,   # Player 2 starts at position 16
+        2: 32,   # Player 3 starts at position 32
+        3: 48    # Player 4 starts at position 48
+    }
     def __init__(self) -> None:
         """Initialize the game with default values."""
         self.state = GameState(  # type: ignore #type:unused-ignore
@@ -193,7 +200,8 @@ class Dog(Game):
 
     def create_moves_from_kennel(self, player: PlayerState) -> List[Action]:
         """Create actions for moving marbles out of the kennel."""
-        start_position = 16 * self.state.list_player.index(player)  # Calculate starting position
+        player_index = self.state.list_player.index(player)
+        start_position = Dog.STARTING_POSITIONS[player_index]  # Use fixed starting positions
         kennel_moves = []
 
         for card in player.list_card:
@@ -202,6 +210,7 @@ class Dog(Game):
                     if marble.pos == -1:  # Marble is still in the kennel
                         kennel_moves.append(Action(card=card, pos_from=-1, pos_to=start_position))
         return kennel_moves
+
 
     def generate_joker_options(self, player: PlayerState) -> List[Action]:
         """Generate all possible actions involving Joker cards."""
@@ -351,17 +360,19 @@ class Dog(Game):
         Returns:
             bool: True if overtaking happens in unsafe conditions; otherwise False.
         """
-        for player in self.state.list_player:  # Check all players
+        for player_index, player in enumerate(self.state.list_player):  # Check all players
             for marble in player.list_marble:  # Check all marbles of each player
                 if marble.is_save:  # Only consider safe marbles
-                    # Handle overtaking logic for circular board
+                    # Prevent crossing other players' starting positions
+                    other_start = Dog.STARTING_POSITIONS[player_index]
                     if current_pos < dest_pos:  # Standard case
-                        if current_pos < marble.pos <= dest_pos:
+                        if current_pos < marble.pos <= dest_pos or other_start == dest_pos:
                             return True
                     else:  # Case where move crosses the starting point (position 0)
-                        if marble.pos > current_pos or marble.pos <= dest_pos:
+                        if marble.pos > current_pos or marble.pos <= dest_pos or other_start == dest_pos:
                             return True
         return False
+
 
 
 
