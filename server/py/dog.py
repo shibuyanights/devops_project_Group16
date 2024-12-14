@@ -138,7 +138,13 @@ class Dog(Game):
     }
 
 
-
+    # Define START_POSITIONS
+    START_POSITIONS = {
+        0: 0,    # Blue starts at position 0
+        1: 16,   # Green starts at position 16
+        2: 32,   # Red starts at position 32
+        3: 48,   # Yellow starts at position 48
+    }
 
 
 
