@@ -273,15 +273,21 @@ class Dog(Game):
     def create_moves_from_kennel(self, player: PlayerState) -> List[Action]:
         """Create actions for moving marbles out of the kennel."""
         player_index = self.state.list_player.index(player)
-        start_position = Dog.STARTING_POSITIONS[player_index]  # Use fixed starting positions
+        start_position = Dog.START_POSITIONS[player_index]  # Use fixed starting positions
         kennel_moves = []
 
         for card in player.list_card:
             if card.rank in ["A", "K", "JKR"]:  # Only these cards can start marbles
                 for marble in player.list_marble:
                     if marble.pos == -1:  # Marble is still in the kennel
-                        kennel_moves.append(Action(card=card, pos_from=-1, pos_to=start_position))
-        return kennel_moves
+                        kennel_moves.append(
+                            Action(
+                                card=card, 
+                                pos_from=-1,  # Marbles in the kennel
+                                pos_to=Dog.START_POSITIONS[player_index]
+                            )
+                        )
+
 
 
     def generate_joker_options(self, player: PlayerState) -> List[Action]:
@@ -485,6 +491,7 @@ class Dog(Game):
 
     def get_list_action(self) -> List[Action]:
         """Get a list of possible actions for the active player."""
+        player_index = self.state.idx_player_active
         active_player = self.state.list_player[self.state.idx_player_active]  # Active player
         actions: List[Action] = []
 
@@ -497,7 +504,13 @@ class Dog(Game):
         for card in active_player.list_card:
             if card.rank == 'JKR':
                 # Joker actions: Moving from kennel and swaps
-                actions.append(Action(card=card, pos_from=64, pos_to=0))
+                actions.append(
+                    Action(
+                        card=card,
+                        pos_from=Dog.KENNEL_POSITIONS[player_index][0],
+                        pos_to=Dog.START_POSITIONS[player_index],
+                    )
+                )
 
                 if self.state.cnt_round == 0:
                     # Early game: Joker can swap with A or K
@@ -514,8 +527,15 @@ class Dog(Game):
                 for marble in active_player.list_marble:
                     # Handle start cards (A, K) for moving out of the kennel
                     if marble.pos == -1 and card.rank in ['A', 'K']:
-                        if not any(m2.pos == 0 for m2 in active_player.list_marble):  # Ensure no marble is already in start position
-                            actions.append(Action(card=card, pos_from=64, pos_to=0))
+                        if not any(m2.pos == Dog.START_POSITIONS[player_index] for m2 in active_player.list_marble):
+                            actions.append(
+                                Action(
+                                    card=card,
+                                    pos_from=Dog.KENNEL_POSITIONS[player_index][0],  # Use dynamic kennel position
+                                    pos_to=Dog.START_POSITIONS[player_index]         # Use dynamic start position
+                                )
+                            )
+
                     elif marble.pos >= 0 and card.rank.isdigit():
                         # Normal move for number cards
                         new_pos = (marble.pos + int(card.rank)) % 96
@@ -673,9 +693,10 @@ class Dog(Game):
 
         # Handle normal card actions (e.g., number cards, A, K)
         elif action.card in player.list_card:
-            if action.pos_from in (-1, 64) and action.pos_to is not None:  # Move out of Kennel
-                marble = next(m for m in player.list_marble if m.pos == -1)
-                marble.pos = action.pos_to
+            # Move out of the Kennel
+            if action.pos_from in (-1, Dog.KENNEL_POSITIONS[self.state.idx_player_active][0]) and action.pos_to is not None:
+                marble = next(m for m in player.list_marble if m.pos == -1)  # Find marble in kennel
+                marble.pos = Dog.START_POSITIONS[self.state.idx_player_active]  # Use START_POSITIONS mapping
                 marble.is_save = True
 
                 # Check for opponent marble at the same position and send it to kennel
@@ -683,8 +704,9 @@ class Dog(Game):
                     if op is not player:
                         for om in op.list_marble:
                             if om.pos == action.pos_to:
-                                om.pos = 72  # Send opponent marble back to Kennel
-                                om.is_save = False
+                                opponent_index = self.state.list_player.index(op)  # Get the index of the opponent player
+                                om.pos = Dog.KENNEL_POSITIONS[opponent_index][0]  # Send opponent marble back to Kennel
+
 
             elif action.pos_from is not None and action.pos_to is not None:  # Normal move
                 marble = next(m for m in player.list_marble if m.pos == action.pos_from)
