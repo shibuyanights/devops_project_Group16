@@ -146,8 +146,29 @@ class Dog(Game):
         3: 48,   # Yellow starts at position 48
     }
 
-
-
+    # Define Action  Rules
+    RANK_ACTIONS = {
+        "2": {"start": False, "moves": [2]},
+        "3": {"start": False, "moves": [3]},
+        "4": {"start": False, "moves": [4, -4]},  # Can move forward or backward
+        "5": {"start": False, "moves": [5]},
+        "6": {"start": False, "moves": [6]},
+        "7": {"start": False, "moves": [1, 2, 3, 4, 5, 6, 7], "split": True},  # Split special rule
+        "8": {"start": False, "moves": [8]},
+        "9": {"start": False, "moves": [9]},
+        "10": {"start": False, "moves": [10]},
+        "J": {"start": False, "moves": [-1], "exchange": True},  # Swap rule
+        "Q": {"start": False, "moves": [12]},
+        "K": {"start": True, "moves": [13]},  # Can start or move 13 spots
+        "A": {"start": True, "moves": [1, 11]},  # Start or move 1 or 11
+        "JKR": {
+            "wildcard": True,  # Joker can mimic any card
+            "start": True,     # Joker can be used to start a marble
+            "moves": [-1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],  # All possible moves
+            "exchange": True,  # Joker can swap with any card
+            "description": "Joker mimics any card and can perform any move."  # Optional clarity
+        },
+    }
 
 
 
