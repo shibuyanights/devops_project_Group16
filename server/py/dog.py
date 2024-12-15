@@ -23,19 +23,20 @@ class Card(BaseModel):
 
     def __str__(self):
         return f"{self.suit}{self.rank}"
-    
+
     def __hash__(self) -> int:
         """Make Card hashable."""
         return hash((self.suit, self.rank))
 
+
 class Marble(BaseModel):
-    pos: int       # position on board (-1 for Kennel, 0 to 95 for board positions)
+    pos: int  # position on board (-1 for Kennel, 0 to 95 for board positions)
     is_save: bool  # true if marble was moved out of kennel and was not yet moved
 
 
 class PlayerState(BaseModel):
-    name: str                  # name of player
-    list_card: List[Card]      # list of cards
+    name: str  # name of player
+    list_card: List[Card]  # list of cards
     list_marble: List[Marble]  # list of marbles
 
 
@@ -54,56 +55,69 @@ class Action(BaseModel):
         if not isinstance(other, Action):
             return False
         return (
-            self.card == other.card
-            and self.pos_from == other.pos_from
-            and self.pos_to == other.pos_to
-            and self.card_swap == other.card_swap
+                self.card == other.card
+                and self.pos_from == other.pos_from
+                and self.pos_to == other.pos_to
+                and self.card_swap == other.card_swap
         )
 
 
-
 class GamePhase(str, Enum):
-    SETUP = 'setup'            # before the game has started
-    RUNNING = 'running'        # while the game is running
-    FINISHED = 'finished'      # when the game is finished
+    SETUP = 'setup'  # before the game has started
+    RUNNING = 'running'  # while the game is running
+    FINISHED = 'finished'  # when the game is finished
 
 
 class GameState(BaseModel):
     LIST_SUIT: ClassVar[List[str]] = ['♠', '♥', '♦', '♣']  # 4 suits (colors)
     LIST_RANK: ClassVar[List[str]] = [
-        '2', '3', '4', '5', '6', '7', '8', '9', '10',      # 13 ranks + Joker
+        '2', '3', '4', '5', '6', '7', '8', '9', '10',  # 13 ranks + Joker
         'J', 'Q', 'K', 'A', 'JKR'
     ]
     LIST_CARD: ClassVar[List[Card]] = [
-        # 2: Move 2 spots forward
-        Card(suit='♠', rank='2'), Card(suit='♥', rank='2'), Card(suit='♦', rank='2'), Card(suit='♣', rank='2'),
-        # 3: Move 3 spots forward
-        Card(suit='♠', rank='3'), Card(suit='♥', rank='3'), Card(suit='♦', rank='3'), Card(suit='♣', rank='3'),
-        # 4: Move 4 spots forward or back
-        Card(suit='♠', rank='4'), Card(suit='♥', rank='4'), Card(suit='♦', rank='4'), Card(suit='♣', rank='4'),
-        # 5: Move 5 spots forward
-        Card(suit='♠', rank='5'), Card(suit='♥', rank='5'), Card(suit='♦', rank='5'), Card(suit='♣', rank='5'),
-        # 6: Move 6 spots forward
-        Card(suit='♠', rank='6'), Card(suit='♥', rank='6'), Card(suit='♦', rank='6'), Card(suit='♣', rank='6'),
-        # 7: Move 7 single steps forward
-        Card(suit='♠', rank='7'), Card(suit='♥', rank='7'), Card(suit='♦', rank='7'), Card(suit='♣', rank='7'),
-        # 8: Move 8 spots forward
-        Card(suit='♠', rank='8'), Card(suit='♥', rank='8'), Card(suit='♦', rank='8'), Card(suit='♣', rank='8'),
-        # 9: Move 9 spots forward
-        Card(suit='♠', rank='9'), Card(suit='♥', rank='9'), Card(suit='♦', rank='9'), Card(suit='♣', rank='9'),
-        # 10: Move 10 spots forward
-        Card(suit='♠', rank='10'), Card(suit='♥', rank='10'), Card(suit='♦', rank='10'), Card(suit='♣', rank='10'),
-        # Jake: A marble must be exchanged
-        Card(suit='♠', rank='J'), Card(suit='♥', rank='J'), Card(suit='♦', rank='J'), Card(suit='♣', rank='J'),
-        # Queen: Move 12 spots forward
-        Card(suit='♠', rank='Q'), Card(suit='♥', rank='Q'), Card(suit='♦', rank='Q'), Card(suit='♣', rank='Q'),
-        # King: Start or move 13 spots forward
-        Card(suit='♠', rank='K'), Card(suit='♥', rank='K'), Card(suit='♦', rank='K'), Card(suit='♣', rank='K'),
-        # Ass: Start or move 1 or 11 spots forward
-        Card(suit='♠', rank='A'), Card(suit='♥', rank='A'), Card(suit='♦', rank='A'), Card(suit='♣', rank='A'),
-        # Joker: Use as any other card you want
-        Card(suit='', rank='JKR'), Card(suit='', rank='JKR'), Card(suit='', rank='JKR')
-    ] * 2
+                                          # 2: Move 2 spots forward
+                                          Card(suit='♠', rank='2'), Card(suit='♥', rank='2'), Card(suit='♦', rank='2'),
+                                          Card(suit='♣', rank='2'),
+                                          # 3: Move 3 spots forward
+                                          Card(suit='♠', rank='3'), Card(suit='♥', rank='3'), Card(suit='♦', rank='3'),
+                                          Card(suit='♣', rank='3'),
+                                          # 4: Move 4 spots forward or back
+                                          Card(suit='♠', rank='4'), Card(suit='♥', rank='4'), Card(suit='♦', rank='4'),
+                                          Card(suit='♣', rank='4'),
+                                          # 5: Move 5 spots forward
+                                          Card(suit='♠', rank='5'), Card(suit='♥', rank='5'), Card(suit='♦', rank='5'),
+                                          Card(suit='♣', rank='5'),
+                                          # 6: Move 6 spots forward
+                                          Card(suit='♠', rank='6'), Card(suit='♥', rank='6'), Card(suit='♦', rank='6'),
+                                          Card(suit='♣', rank='6'),
+                                          # 7: Move 7 single steps forward
+                                          Card(suit='♠', rank='7'), Card(suit='♥', rank='7'), Card(suit='♦', rank='7'),
+                                          Card(suit='♣', rank='7'),
+                                          # 8: Move 8 spots forward
+                                          Card(suit='♠', rank='8'), Card(suit='♥', rank='8'), Card(suit='♦', rank='8'),
+                                          Card(suit='♣', rank='8'),
+                                          # 9: Move 9 spots forward
+                                          Card(suit='♠', rank='9'), Card(suit='♥', rank='9'), Card(suit='♦', rank='9'),
+                                          Card(suit='♣', rank='9'),
+                                          # 10: Move 10 spots forward
+                                          Card(suit='♠', rank='10'), Card(suit='♥', rank='10'),
+                                          Card(suit='♦', rank='10'), Card(suit='♣', rank='10'),
+                                          # Jake: A marble must be exchanged
+                                          Card(suit='♠', rank='J'), Card(suit='♥', rank='J'), Card(suit='♦', rank='J'),
+                                          Card(suit='♣', rank='J'),
+                                          # Queen: Move 12 spots forward
+                                          Card(suit='♠', rank='Q'), Card(suit='♥', rank='Q'), Card(suit='♦', rank='Q'),
+                                          Card(suit='♣', rank='Q'),
+                                          # King: Start or move 13 spots forward
+                                          Card(suit='♠', rank='K'), Card(suit='♥', rank='K'), Card(suit='♦', rank='K'),
+                                          Card(suit='♣', rank='K'),
+                                          # Ass: Start or move 1 or 11 spots forward
+                                          Card(suit='♠', rank='A'), Card(suit='♥', rank='A'), Card(suit='♦', rank='A'),
+                                          Card(suit='♣', rank='A'),
+                                          # Joker: Use as any other card you want
+                                          Card(suit='', rank='JKR'), Card(suit='', rank='JKR'),
+                                          Card(suit='', rank='JKR')
+                                      ] * 2
 
     cnt_player: int = 4
     phase: GamePhase
@@ -122,6 +136,7 @@ class Dog(Game):
 
     def __init__(self) -> None:
         self.steps_remaining = None
+        self.seven_card_backup = None  # Backup for SEVEN card scenario
         self.reset()
 
     def reset(self) -> None:
@@ -135,7 +150,7 @@ class Dog(Game):
                 Marble(pos=(64 + i * 8 + j), is_save=(j == 0))  # Set the first marble as "is_save=True"
                 for j in range(4)
             ]
-            
+
             # Assign cards to the player
             player_cards = draw_pile[:6]
             draw_pile = draw_pile[6:]
@@ -159,8 +174,6 @@ class Dog(Game):
             card_active=None
         )
 
-
-
     def set_state(self, state: GameState) -> None:
         self.state = state
 
@@ -170,15 +183,6 @@ class Dog(Game):
     def print_state(self) -> None:
         pass
 
-    def is_path_blocked(self, start: int, end: int) -> bool:
-        step = 1 if end > start else -1
-        for pos in range(start + step, end + step, step):
-            for player in self.state.list_player:
-                for m in player.list_marble:
-                    if m.pos == pos and m.is_save:
-                        return True
-        return False
-    
     def is_path_blocked(self, start: int, end: int) -> bool:
         """Helper function to check blocking marbles on path"""
         # Assuming forward moves on the main loop. Check intermediate positions for blocking marbles.
@@ -285,14 +289,12 @@ class Dog(Game):
             game.state.bool_card_exchanged = False
             game.state.idx_player_started = (game.state.idx_player_started + 1) % game.state.cnt_player
 
-
     def fold_cards(self, player: PlayerState) -> None:
         """Discard all cards in hand when no valid action is possible."""
         self.state.list_card_discard.extend(player.list_card)
         player.list_card.clear()
         print(f"{player.name} folded their cards.")
         self.finalize_turn()
-
 
     @staticmethod
     def generate_numbered_card_actions(game, active_player, card, steps):
@@ -303,7 +305,7 @@ class Dog(Game):
                 if target_pos <= 63 and not game.is_path_blocked(marble.pos, target_pos):
                     actions.append(Action(card=card, pos_from=marble.pos, pos_to=target_pos))
         return actions
-    
+
     @staticmethod
     def handle_normal_card_action(game, action, active_player):
         """Handle normal card actions."""
@@ -332,8 +334,6 @@ class Dog(Game):
 
         # Validate card count to ensure the game state remains consistent
         self._validate_card_count()
-
-
 
     def get_list_action(self) -> List[Action]:
         actions = []
@@ -482,8 +482,6 @@ class Dog(Game):
 
         return actions
 
-
-
     def apply_action(self, action: Optional[Action]) -> None:
         # Reshuffle cards if the draw pile is empty
         if not self.state.list_card_draw:
@@ -523,9 +521,6 @@ class Dog(Game):
         if winner:
             print(f"Player {winner} has won the game!")
 
-
-
-
     def reshuffle_cards(self) -> None:
         """Reshuffle the discard pile into the draw pile if there are no cards left."""
         if not self.state.list_card_draw and self.state.list_card_discard:
@@ -548,24 +543,32 @@ class Dog(Game):
         print(f"Draw pile: {len(self.state.list_card_draw)}, Discard pile: {len(self.state.list_card_discard)}")
         for idx, player in enumerate(self.state.list_player):
             print(f"Player {idx + 1} cards: {len(player.list_card)}")
-        
+
         if total_cards != 110:
             raise ValueError(f"Error: Total number of cards is {total_cards}, but it must be 110.")
-
 
     def _handle_no_action(self, active_player: PlayerState) -> None:
         """Handle cases where no action is provided."""
         print("No action provided; skipping turn or reshuffling cards.")
-        if self.state.card_active and self.state.card_active.rank == '7':
-            self._finalize_turn()
+        # If we are in the middle of a SEVEN card action and cannot complete all steps
+        if self.state.card_active and self.state.card_active.rank == '7' and self.steps_remaining is not None:
+            # Revert to the backup state
+            self._restore_seven_card_backup()
+            # After restoring, do not finalize turn or fold here, just return
+            return
         else:
-            self._fold_cards(active_player)
+            if self.state.card_active and self.state.card_active.rank == '7':
+                self._finalize_turn()
+            else:
+                self._fold_cards(active_player)
 
     def _handle_seven_card(self, action: Action, active_player: PlayerState) -> None:
         """Handle SEVEN card actions with split movements."""
         if self.steps_remaining is None:
             self.steps_remaining = 7
             self.state.card_active = action.card
+            # Backup the state before any moves for SEVEN card
+            self.seven_card_backup = self._create_seven_card_backup()
 
         steps_used = self._calculate_steps_used(action)
 
@@ -582,6 +585,7 @@ class Dog(Game):
                 self.steps_remaining = None
                 self.state.card_active = None
                 active_player.list_card.remove(action.card)
+                self.seven_card_backup = None  # Clear backup after successful completion
 
     def _handle_joker_card(self, action: Action, active_player: PlayerState) -> None:
         """Handle JOKER card swap logic."""
@@ -619,7 +623,6 @@ class Dog(Game):
         # Check if the round is complete
         if self.state.idx_player_active == self.state.idx_player_started:
             self._handle_round_completion()
-
 
     def _fold_cards(self, active_player: PlayerState) -> None:
         """Fold the cards when no valid actions are possible."""
@@ -701,8 +704,6 @@ class Dog(Game):
         # Update the draw pile
         self.state.list_card_draw = draw_pile
 
-
-
     def check_victory(self) -> Optional[str]:
         """Check if any player has won the game."""
         if self.state.phase == GamePhase.FINISHED:
@@ -715,9 +716,6 @@ class Dog(Game):
                     self.state.phase = GamePhase.FINISHED
                 return player.name
         return None
-
-
-
 
     def get_player_view(self, idx_player: int) -> GameState:
         """
@@ -752,6 +750,42 @@ class Dog(Game):
             card_active=self.state.card_active,
         )
 
+    def _create_seven_card_backup(self):
+        """Create a backup of the current state before starting SEVEN card moves."""
+        return {
+            'marbles': [
+                (player_idx, marble_idx, marble.pos, marble.is_save)
+                for player_idx, p in enumerate(self.state.list_player)
+                for marble_idx, marble in enumerate(p.list_marble)
+            ],
+            'card_hands': [
+                (player_idx, list(p.list_card))
+                for player_idx, p in enumerate(self.state.list_player)
+            ],
+            'card_active': self.state.card_active,
+            'steps_remaining': self.steps_remaining,
+            'idx_player_active': self.state.idx_player_active,
+        }
+
+    def _restore_seven_card_backup(self):
+        """Restore the game state from the backup if the SEVEN action was not completed."""
+        if not self.seven_card_backup:
+            return
+
+        # Restore marbles
+        for player_idx, marble_idx, pos, is_save in self.seven_card_backup['marbles']:
+            self.state.list_player[player_idx].list_marble[marble_idx].pos = pos
+            self.state.list_player[player_idx].list_marble[marble_idx].is_save = is_save
+
+        # Restore cards
+        for player_idx, card_list in self.seven_card_backup['card_hands']:
+            self.state.list_player[player_idx].list_card = card_list
+
+        # Restore active card and steps
+        self.state.card_active = None
+        self.steps_remaining = None
+        self.seven_card_backup = None
+
 
 class RandomPlayer(Player):
 
@@ -759,6 +793,7 @@ class RandomPlayer(Player):
         if len(actions) > 0:
             return random.choice(actions)
         return None
+
 
 if __name__ == '__main__':
     game = Dog()
