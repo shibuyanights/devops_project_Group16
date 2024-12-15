@@ -4,6 +4,8 @@ from enum import Enum
 from typing import List, Optional, ClassVar
 from pydantic import BaseModel
 from server.py.game import Game, Player
+import sys
+import os
 
 
 class Card(BaseModel):
