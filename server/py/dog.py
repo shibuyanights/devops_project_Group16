@@ -325,19 +325,6 @@ class Dog(Game):
             moving_marble.pos = action.pos_to
             moving_marble.is_save = True
 
-    def reshuffle_cards(self) -> None:
-        """Reshuffle the discard pile into the draw pile if there are no cards left."""
-        if not self.state.list_card_draw and self.state.list_card_discard:
-            # Move all discard pile cards into the draw pile
-            self.state.list_card_draw.extend(self.state.list_card_discard)
-            self.state.list_card_discard.clear()
-            random.shuffle(self.state.list_card_draw)
-            print("Reshuffled the discard pile into the draw pile.")
-
-        # Validate card count to ensure the game state remains consistent
-        self._validate_card_count()
-
-
 
     def get_list_action(self) -> List[Action]:
         actions = []
