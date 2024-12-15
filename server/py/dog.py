@@ -337,6 +337,8 @@ class Dog(Game):
         # Validate card count to ensure the game state remains consistent
         self._validate_card_count()
 
+
+
     def get_list_action(self) -> List[Action]:
         actions = []
         active_player = self.state.list_player[self.state.idx_player_active]
@@ -532,8 +534,8 @@ class Dog(Game):
             random.shuffle(self.state.list_card_draw)
             print("Reshuffled the discard pile into the draw pile.")
 
-        # Validate card count to ensure the game state remains consistent
         self._validate_card_count()
+
 
     def _validate_card_count(self) -> None:
         """Validate that the total number of cards in the game is consistent."""
