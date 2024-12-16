@@ -298,23 +298,6 @@ class Dog(Game):
         print(f"{player.name} folded their cards.")
         self.finalize_turn()
 
-    def handle_normal_card_action(game, action, active_player):
-        """Handle normal card actions."""
-        moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
-        if moving_marble:
-            opponent_marble = next(
-                (m for player in game.state.list_player for m in player.list_marble if m.pos == action.pos_to),
-                None
-            )
-
-            if opponent_marble:
-                opponent_marble.pos = 72  # Kennel position
-                opponent_marble.is_save = False
-
-            moving_marble.pos = action.pos_to
-            moving_marble.is_save = True
-
-
     def get_list_action(self) -> List[Action]:
         actions = []
         active_player = self.state.list_player[self.state.idx_player_active]
@@ -540,7 +523,7 @@ class Dog(Game):
             if self.state.card_active and self.state.card_active.rank == '7':
                 self._finalize_turn()
             else:
-                self._fold_cards(active_player)
+                self.fold_cards(active_player)
 
     def _handle_seven_card(self, action: Action, active_player: PlayerState) -> None:
         """Handle SEVEN card actions with split movements."""
@@ -604,13 +587,6 @@ class Dog(Game):
         if self.state.idx_player_active == self.state.idx_player_started:
             self._handle_round_completion()
 
-    def _fold_cards(self, active_player: PlayerState) -> None:
-        """Fold the cards when no valid actions are possible."""
-        if active_player.list_card:
-            self.state.list_card_discard.extend(active_player.list_card)
-            active_player.list_card.clear()
-        else:
-            print(f"Player {self.state.idx_player_active + 1} has no cards to fold. Skipping.")
 
     def _calculate_steps_used(self, action: Action) -> int:
         """Calculate the number of steps used for the SEVEN card."""
