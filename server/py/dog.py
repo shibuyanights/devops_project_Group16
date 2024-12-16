@@ -1,4 +1,5 @@
 from __future__ import annotations  # Enables forward references for type hints
+from collections import Counter
 import random
 from enum import Enum
 from typing import List, Optional, ClassVar
@@ -205,26 +206,41 @@ class Dog(Game):
         print(f"{player.name} folded their cards.")
         self._finalize_turn()
 
+
     def get_list_action(self) -> List[Action]:
-        actions = []
+        actions = set()  # Use a set to store unique actions
         active_player = self.state.list_player[self.state.idx_player_active]
 
         cards = active_player.list_card if not self.state.card_active else [self.state.card_active]
 
-        # Check if it's the beginning of the game (all marbles in kennel)
         is_beginning_phase = all(marble.pos >= 64 for marble in active_player.list_marble)
 
         for card in cards:
             if card.rank == 'JKR':
-                actions.extend(self._generate_joker_actions(active_player, card, is_beginning_phase))
+                actions.update(self._generate_joker_actions(active_player, card, is_beginning_phase))
             elif card.rank in ['A', 'K']:
-                actions.extend(self._generate_start_card_actions(active_player, card))
+                actions.update(self._generate_start_card_actions(active_player, card))
             elif card.rank == 'J':
-                actions.extend(self._generate_jack_card_actions(active_player, card))
+                actions.update(self._generate_jack_card_actions(active_player, card))
             elif card.rank in {'2', '3', '5', '6', '8', '9', '10'}:
-                actions.extend(self._generate_forward_move_actions(active_player, card))
+                actions.update(self._generate_forward_move_actions(active_player, card))
 
-        return actions
+        return list(actions)  # Convert set back to list
+
+
+    def _find_duplicate_actions(self, actions: List[Action]) -> None:
+        """Detect and print duplicate actions for debugging."""
+        action_counter = Counter(actions)
+        duplicates = [action for action, count in action_counter.items() if count > 1]
+
+        if duplicates:
+            print("Duplicate actions found:")
+            for action in duplicates:
+                print(action)
+            raise ValueError("Duplicate actions detected in get_list_action.")
+        else:
+            print("No duplicate actions found.")
+
 
     def _generate_joker_actions(self, active_player: PlayerState, card: Card, is_beginning_phase: bool) -> List[Action]:
         """Generate actions for Joker cards."""
@@ -266,7 +282,6 @@ class Dog(Game):
         return actions
 
     def _generate_start_card_actions(self, active_player: PlayerState, card: Card) -> List[Action]:
-        """Generate actions for start cards (A and K)."""
         actions = []
 
         for marble in active_player.list_marble:
@@ -274,11 +289,22 @@ class Dog(Game):
                 actions.append(Action(
                     card=card,
                     pos_from=64,
-                    pos_to=0,
+                    pos_to=0,  # Move to starting position
                     card_swap=None
                 ))
 
+            # Check for other valid moves forward
+            if 0 <= marble.pos < 64:
+                target_pos = marble.pos + 1  # A moves 1 or 11 steps
+                if target_pos <= 63:
+                    actions.append(Action(
+                        card=card,
+                        pos_from=marble.pos,
+                        pos_to=target_pos
+                    ))
+
         return actions
+
 
     def _generate_jack_card_actions(self, active_player: PlayerState, card: Card) -> List[Action]:
         """Generate actions for Jack (J) cards."""
@@ -395,7 +421,7 @@ class Dog(Game):
         # Check for victory after the action
         winner = self.check_victory()
         if winner:
-            print(f"Player {winner} has won the game!")
+            pass
 
 
     def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
@@ -623,12 +649,13 @@ class Dog(Game):
             return None  # Avoid re-checking if the game is already finished
 
         for player in self.state.list_player:
-            if all(76 <= marble.pos <= 95 for marble in player.list_marble):  # All marbles in the finish zone
+            if all(76 <= marble.pos <= 95 for marble in player.list_marble):  # All marbles in finish zone
                 if self.state.phase != GamePhase.FINISHED:  # Ensure winner is announced only once
+                    self.state.phase = GamePhase.FINISHED  # Stop game phase
                     print(f"Player {player.name} has won the game!")
-                    self.state.phase = GamePhase.FINISHED
                 return player.name
         return None
+
 
     def get_player_view(self, idx_player: int) -> GameState:
         """
