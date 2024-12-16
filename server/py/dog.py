@@ -233,36 +233,12 @@ class Dog(Game):
         return actions
 
 
-    def handle_normal_card_action(game, action, active_player):
-        moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
-        if moving_marble:
-            opponent_marble = next(
-                (m for player in game.state.list_player for m in player.list_marble if m.pos == action.pos_to),
-                None
-            )
-
-            if opponent_marble:
-                opponent_marble.pos = 72  # Kennel position
-                opponent_marble.is_save = False
-
-            moving_marble.pos = action.pos_to
-            moving_marble.is_save = True
-
-    def finalize_turn(game):
-        if game.steps_remaining is None:
-            game.state.idx_player_active = (game.state.idx_player_active + 1) % game.state.cnt_player
-
-        if game.state.idx_player_active == game.state.idx_player_started:
-            game.state.cnt_round += 1
-            game.state.bool_card_exchanged = False
-            game.state.idx_player_started = (game.state.idx_player_started + 1) % game.state.cnt_player
-
     def fold_cards(self, player: PlayerState) -> None:
         """Discard all cards in hand when no valid action is possible."""
         self.state.list_card_discard.extend(player.list_card)
         player.list_card.clear()
         print(f"{player.name} folded their cards.")
-        self.finalize_turn()
+        self._finalize_turn()
 
     def get_list_action(self) -> List[Action]:
         actions = []
