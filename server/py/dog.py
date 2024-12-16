@@ -298,17 +298,6 @@ class Dog(Game):
         print(f"{player.name} folded their cards.")
         self.finalize_turn()
 
-    @staticmethod
-    def generate_numbered_card_actions(game, active_player, card, steps):
-        actions = []
-        for marble in active_player.list_marble:
-            if 0 <= marble.pos < 64:
-                target_pos = marble.pos + steps
-                if target_pos <= 63 and not game.is_path_blocked(marble.pos, target_pos):
-                    actions.append(Action(card=card, pos_from=marble.pos, pos_to=target_pos))
-        return actions
-
-    @staticmethod
     def handle_normal_card_action(game, action, active_player):
         """Handle normal card actions."""
         moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
@@ -777,14 +766,12 @@ class Dog(Game):
         self.steps_remaining = None
         self.seven_card_backup = None
 
-
 class RandomPlayer(Player):
 
     def select_action(self, state: GameState, actions: List[Action]) -> Optional[Action]:
         if len(actions) > 0:
             return random.choice(actions)
         return None
-
 
 if __name__ == '__main__':
     game = Dog()
