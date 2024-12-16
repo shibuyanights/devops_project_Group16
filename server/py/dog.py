@@ -204,13 +204,6 @@ class Dog(Game):
                 actions.append(Action(card=card, pos_from=64, pos_to=0))
         return actions
 
-    def generate_start_card_actions(game, active_player, card):
-        actions = []
-        for marble in active_player.list_marble:
-            if marble.pos == 64:  # Kennel position
-                actions.append(Action(card=card, pos_from=64, pos_to=0))
-        return actions
-
     def generate_jack_actions(game, active_player, card):
         actions = []
         for marble in active_player.list_marble:
@@ -426,15 +419,32 @@ class Dog(Game):
         if winner:
             print(f"Player {winner} has won the game!")
 
-    def reshuffle_cards(self) -> None:
-        """Reshuffle the discard pile into the draw pile if there are no cards left."""
-        if not self.state.list_card_draw and self.state.list_card_discard:
-            # Move all discard pile cards into the draw pile
+    def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
+        """
+        Reshuffle the discard pile into the draw pile when needed.
+
+        - If the draw pile is empty, reshuffle the discard pile into the draw pile.
+        - If not enough cards are available to deal a round, reset the draw pile to a full deck.
+
+        Args:
+            cards_per_player (Optional[int]): The number of cards per player (for dealing check).
+        """
+        total_cards_needed = (cards_per_player * self.state.cnt_player) if cards_per_player else 0
+
+        # Scenario 1: Not enough cards to deal for a new round
+        if cards_per_player and len(self.state.list_card_draw) < total_cards_needed:
+            print("Not enough cards to deal. Resetting the deck.")
+            self.state.list_card_draw = list(GameState.LIST_CARD)
+            random.shuffle(self.state.list_card_draw)
+            self.state.list_card_discard.clear()
+        # Scenario 2: Draw pile is empty; reshuffle the discard pile
+        elif not self.state.list_card_draw and self.state.list_card_discard:
+            print("Draw pile is empty. Reshuffling the discard pile into the draw pile.")
             self.state.list_card_draw.extend(self.state.list_card_discard)
             self.state.list_card_discard.clear()
             random.shuffle(self.state.list_card_draw)
-            print("Reshuffled the discard pile into the draw pile.")
 
+        # Optional validation to ensure card consistency
         self._validate_card_count()
 
 
@@ -571,7 +581,7 @@ class Dog(Game):
         self.state.idx_player_started = (self.state.idx_player_started + 1) % self.state.cnt_player
 
         cards_per_player = self._calculate_cards_per_round()
-        self._reshuffle_if_needed(cards_per_player)
+        self.reshuffle_cards(cards_per_player)
         self._deal_cards(cards_per_player)
 
     def _calculate_cards_per_round(self) -> int:
