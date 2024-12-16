@@ -198,16 +198,6 @@ class Dog(Game):
         return False
 
 
-    def generate_numbered_card_actions(game, active_player, card, steps):
-        actions = []
-        for marble in active_player.list_marble:
-            if 0 <= marble.pos < 64:
-                target_pos = marble.pos + steps
-                if target_pos <= 63 and not game.is_path_blocked(marble.pos, target_pos):
-                    actions.append(Action(card=card, pos_from=marble.pos, pos_to=target_pos))
-        return actions
-
-
     def fold_cards(self, player: PlayerState) -> None:
         """Discard all cards in hand when no valid action is possible."""
         self.state.list_card_discard.extend(player.list_card)
