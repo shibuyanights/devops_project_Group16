@@ -252,10 +252,6 @@ class Dog(Game):
             active_player.list_card.remove(action.card)
             game.state.idx_player_active = (game.state.idx_player_active + 1) % game.state.cnt_player
 
-    def handle_joker_card_action(game, action, active_player):
-        if action.card_swap:
-            game.state.card_active = action.card_swap
-            active_player.list_card.remove(action.card)
 
     def handle_jack_card_action(game, action, active_player):
         moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
