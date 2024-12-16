@@ -197,13 +197,6 @@ class Dog(Game):
                         return True
         return False
 
-    def generate_joker_actions(game, active_player, card):
-        actions = []
-        for marble in active_player.list_marble:
-            if marble.pos == 64:  # Kennel position
-                actions.append(Action(card=card, pos_from=64, pos_to=0))
-        return actions
-
 
     def generate_numbered_card_actions(game, active_player, card, steps):
         actions = []
