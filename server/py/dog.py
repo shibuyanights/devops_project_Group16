@@ -582,14 +582,6 @@ class Dog(Game):
             return 6
         return max(7 - ((self.state.cnt_round - 1) % 5 + 1), 2)
 
-    def _reshuffle_if_needed(self, cards_per_player: int) -> None:
-        """Reshuffle the deck if there are not enough cards to deal."""
-        total_cards_needed = cards_per_player * self.state.cnt_player
-        if len(self.state.list_card_draw) < total_cards_needed:
-            self.state.list_card_draw = list(GameState.LIST_CARD)
-            random.shuffle(self.state.list_card_draw)
-            self.state.list_card_discard = []
-
     def _deal_cards(self, cards_per_player: int) -> None:
         """Deal cards to players for the next round. Reshuffle if needed."""
         self.reshuffle_cards()  # Ensure there are enough cards in the draw pile
