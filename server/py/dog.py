@@ -204,17 +204,6 @@ class Dog(Game):
                 actions.append(Action(card=card, pos_from=64, pos_to=0))
         return actions
 
-    def generate_jack_actions(game, active_player, card):
-        actions = []
-        for marble in active_player.list_marble:
-            if marble.pos < 64:
-                for opponent in game.state.list_player:
-                    if opponent != active_player:
-                        for opp_marble in opponent.list_marble:
-                            if not opp_marble.is_save and opp_marble.pos < 64:
-                                actions.append(Action(card=card, pos_from=marble.pos, pos_to=opp_marble.pos))
-                                actions.append(Action(card=card, pos_from=opp_marble.pos, pos_to=marble.pos))
-        return actions
 
     def generate_numbered_card_actions(game, active_player, card, steps):
         actions = []
