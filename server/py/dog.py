@@ -232,26 +232,6 @@ class Dog(Game):
                     actions.append(Action(card=card, pos_from=marble.pos, pos_to=target_pos))
         return actions
 
-    def handle_seven_card_action(game, action, active_player):
-        if game.steps_remaining is None:
-            game.steps_remaining = 7
-            game.state.card_active = action.card
-
-        steps_used = abs(action.pos_to - action.pos_from)
-        if steps_used > game.steps_remaining:
-            raise ValueError("Exceeded remaining steps for SEVEN.")
-
-        moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
-        if moving_marble:
-            moving_marble.pos = action.pos_to
-            game.steps_remaining -= steps_used
-
-        if game.steps_remaining == 0:
-            game.steps_remaining = None
-            game.state.card_active = None
-            active_player.list_card.remove(action.card)
-            game.state.idx_player_active = (game.state.idx_player_active + 1) % game.state.cnt_player
-
 
     def handle_normal_card_action(game, action, active_player):
         moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
