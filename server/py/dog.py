@@ -253,16 +253,6 @@ class Dog(Game):
             game.state.idx_player_active = (game.state.idx_player_active + 1) % game.state.cnt_player
 
 
-    def handle_jack_card_action(game, action, active_player):
-        moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
-        opponent_marble = next(
-            (m for player in game.state.list_player for m in player.list_marble if m.pos == action.pos_to),
-            None
-        )
-
-        if moving_marble and opponent_marble:
-            moving_marble.pos, opponent_marble.pos = opponent_marble.pos, moving_marble.pos
-
     def handle_normal_card_action(game, action, active_player):
         moving_marble = next((m for m in active_player.list_marble if m.pos == action.pos_from), None)
         if moving_marble:
