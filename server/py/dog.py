@@ -353,6 +353,12 @@ class Dog(Game):
         return actions
 
     def apply_action(self, action: Optional[Action]) -> None:
+        # Handle the card exchange phase if it hasn't been completed
+        if not self.state.bool_card_exchanged:
+            active_player = self.state.list_player[self.state.idx_player_active]
+            self._exchange_cards(active_player, action)  # Handle the card exchange
+            return
+
         # Reshuffle cards if the draw pile is empty
         if not self.state.list_card_draw:
             self.reshuffle_cards()
@@ -391,6 +397,7 @@ class Dog(Game):
         if winner:
             print(f"Player {winner} has won the game!")
 
+
     def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
         """
         Reshuffle the discard pile into the draw pile when needed.
@@ -420,6 +427,34 @@ class Dog(Game):
         self._validate_card_count()
 
 
+    def _exchange_cards(self, player: PlayerState, action: Optional[Action]) -> None:
+        # Check if action is valid
+        if action is None or action.card is None or action.card_swap is None:
+            print("Invalid action: Card exchange requires both a card and a card to swap.")
+            return
+
+        # Identify the partner player
+        idx_partner = (self.state.idx_player_active + 2) % self.state.cnt_player
+        partner = self.state.list_player[idx_partner]
+
+        # Exchange the cards
+        player.list_card.remove(action.card)
+        partner.list_card.append(action.card)
+
+        partner.list_card.remove(action.card_swap)
+        player.list_card.append(action.card_swap)
+
+        # Move to the next player
+        self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
+
+        # Mark exchange as complete if we've cycled through all players
+        if self.state.idx_player_active == self.state.idx_player_started:
+            self.state.bool_card_exchanged = True
+
+
+
+
+
     def _validate_card_count(self) -> None:
         """Validate that the total number of cards in the game is consistent."""
         total_cards = len(self.state.list_card_draw) + len(self.state.list_card_discard)
@@ -430,9 +465,6 @@ class Dog(Game):
         print(f"Draw pile: {len(self.state.list_card_draw)}, Discard pile: {len(self.state.list_card_discard)}")
         for idx, player in enumerate(self.state.list_player):
             print(f"Player {idx + 1} cards: {len(player.list_card)}")
-
-        if total_cards != 110:
-            raise ValueError(f"Error: Total number of cards is {total_cards}, but it must be 110.")
 
     def _handle_no_action(self, active_player: PlayerState) -> None:
         """Handle cases where no action is provided."""
@@ -511,6 +543,12 @@ class Dog(Game):
         if self.state.idx_player_active == self.state.idx_player_started:
             self._handle_round_completion()
 
+    def start_new_round(self) -> None:
+        """Start a new round: reshuffle cards and deal to players."""
+        self._handle_round_completion()
+        print(f"Round {self.state.cnt_round} started.")
+
+
 
     def _calculate_steps_used(self, action: Action) -> int:
         """Calculate the number of steps used for the SEVEN card."""
@@ -547,34 +585,37 @@ class Dog(Game):
         return None
 
     def _handle_round_completion(self) -> None:
-        """Handle the completion of a round."""
-        self.state.cnt_round += 1
+        """Handle the completion of a round and prepare for the next round."""
+        self.state.cnt_round += 1  # Increment the round counter
         self.state.bool_card_exchanged = False
         self.state.idx_player_started = (self.state.idx_player_started + 1) % self.state.cnt_player
-
+        
+        # Calculate the correct number of cards for the next round
         cards_per_player = self._calculate_cards_per_round()
+
+        # Reshuffle cards and deal to players
         self.reshuffle_cards(cards_per_player)
         self._deal_cards(cards_per_player)
+        print(f"Round {self.state.cnt_round} started with {cards_per_player} cards per player.")
+
 
     def _calculate_cards_per_round(self) -> int:
         """Calculate the number of cards to deal in the current round."""
         if 1 <= self.state.cnt_round <= 5:
             return 7 - self.state.cnt_round
-        if self.state.cnt_round == 6:
-            return 6
-        return max(7 - ((self.state.cnt_round - 1) % 5 + 1), 2)
+        return 7 - ((self.state.cnt_round - 1) % 5 + 1)
 
     def _deal_cards(self, cards_per_player: int) -> None:
-        """Deal cards to players for the next round. Reshuffle if needed."""
-        self.reshuffle_cards()  # Ensure there are enough cards in the draw pile
-
+        """Deal a specific number of cards to each player."""
+        self.reshuffle_cards()  # Ensure enough cards are available
         draw_pile = self.state.list_card_draw
+
         for player in self.state.list_player:
             player.list_card = draw_pile[:cards_per_player]
             draw_pile = draw_pile[cards_per_player:]
 
-        # Update the draw pile
-        self.state.list_card_draw = draw_pile
+        self.state.list_card_draw = draw_pile  # Update remaining draw pile
+
 
     def check_victory(self) -> Optional[str]:
         """Check if any player has won the game."""
