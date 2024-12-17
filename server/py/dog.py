@@ -140,6 +140,7 @@ class Dog(Game):
     def __init__(self) -> None:
         self.steps_remaining = None
         self.seven_card_backup = None  # Backup for SEVEN card scenario
+        self.card_exchange_buffer = [None, None, None, None]
         self.reset()
 
     def reset(self) -> None:
