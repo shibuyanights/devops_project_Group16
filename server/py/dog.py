@@ -207,6 +207,15 @@ class Dog(Game):
         self._finalize_turn()
 
 
+    def _send_marble_home(self, marble: Marble) -> None:
+        """Send a marble back to its owner's kennel."""
+        owner_idx = self._get_marble_owner(marble)
+        # Owner kennel starts at 64 + owner_idx*8
+        kennel_start = 64 + owner_idx * 8
+        marble.pos = kennel_start
+        marble.is_save = False
+
+
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
         active_player = self.state.list_player[self.state.idx_player_active]
@@ -706,6 +715,7 @@ class Dog(Game):
             'steps_remaining': self.steps_remaining,
             'idx_player_active': self.state.idx_player_active,
         }
+
 
     def _restore_seven_card_backup(self):
         """Restore the game state from the backup if the SEVEN action was not completed."""
