@@ -489,21 +489,22 @@ class Dog(Game):
             pass
 
     def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
-        """
-        Reshuffle the discard pile into the draw pile when needed.
-        """
+        # Calculate how many cards are needed
         total_cards_needed = (cards_per_player * self.state.cnt_player) if cards_per_player else 0
 
-        if cards_per_player and len(self.state.list_card_draw) < total_cards_needed:
-            print("Not enough cards to deal. Resetting the deck.")
-            self.state.list_card_draw = list(GameState.LIST_CARD)
-            random.shuffle(self.state.list_card_draw)
-            self.state.list_card_discard.clear()
-        elif not self.state.list_card_draw and self.state.list_card_discard:
-            print("Draw pile is empty. Reshuffling the discard pile into the draw pile.")
-            self.state.list_card_draw.extend(self.state.list_card_discard)
-            self.state.list_card_discard.clear()
-            random.shuffle(self.state.list_card_draw)
+        # If we specifically need a certain number of cards and we don't have enough,
+        # or if draw pile is empty, try to refill.
+        while (cards_per_player and len(self.state.list_card_draw) < total_cards_needed) or (not self.state.list_card_draw):
+            if self.state.list_card_discard:
+                # If we have discarded cards, move them to the draw pile and shuffle
+                self.state.list_card_draw.extend(self.state.list_card_discard)
+                self.state.list_card_discard.clear()
+                random.shuffle(self.state.list_card_draw)
+            else:
+                # No discard pile available, restore the original deck
+                self.state.list_card_draw = list(GameState.LIST_CARD)
+                random.shuffle(self.state.list_card_draw)
+                self.state.list_card_discard.clear()
 
         self._validate_card_count()
 
