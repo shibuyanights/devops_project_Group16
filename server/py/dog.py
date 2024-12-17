@@ -488,6 +488,25 @@ class Dog(Game):
         if winner:
             pass
 
+
+    def _handle_jack_card_in_apply(self, action: Action, active_player: PlayerState, marbles_to_consider: List[Marble]) -> None:
+        moving_marble = self._find_marble_by_pos(marbles_to_consider, action.pos_from)
+        opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
+        if not opponent_marble:
+            # Check if pos_to belongs to marbles_to_consider as well (in case of swapping with partner)
+            opponent_marble = next((m for m in marbles_to_consider if m.pos == action.pos_to), None)
+
+        if moving_marble and opponent_marble:
+            moving_marble.pos, opponent_marble.pos = opponent_marble.pos, moving_marble.pos
+
+
+
+
+
+
+
+
+
     def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
         # Calculate how many cards are needed
         total_cards_needed = (cards_per_player * self.state.cnt_player) if cards_per_player else 0
