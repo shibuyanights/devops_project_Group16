@@ -706,8 +706,7 @@ class Dog(Game):
             if all(76 <= marble.pos <= 95 for marble in player.list_marble):  # All marbles in finish zone
                 if self.state.phase != GamePhase.FINISHED:  # Ensure winner is announced only once
                     self.state.phase = GamePhase.FINISHED  # Stop game phase
-                    print(f"Player {player.name} has won the game!")
-                return player.name
+                pass
         return None
 
     def get_player_view(self, idx_player: int) -> GameState:
