@@ -501,7 +501,19 @@ class Dog(Game):
 
 
 
-
+    def _handle_normal_card_in_apply(self, action: Action, active_player: PlayerState, marbles_to_consider: List[Marble]) -> None:
+        moving_marble = self._find_marble_by_pos(marbles_to_consider, action.pos_from)
+        if moving_marble:
+            opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
+            if not opponent_marble:
+                # Check partner marbles if needed
+                partner_marble = next((m for m in marbles_to_consider if m.pos == action.pos_to and m != moving_marble), None)
+                if partner_marble:
+                    opponent_marble = partner_marble
+            if opponent_marble:
+                self._send_marble_home(opponent_marble)
+            moving_marble.pos = action.pos_to
+            moving_marble.is_save = True
 
 
 
