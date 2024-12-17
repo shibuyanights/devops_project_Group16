@@ -248,6 +248,11 @@ class Dog(Game):
             return [active_player, partner]
         return [active_player]
     
+
+    def _find_marble_by_pos(self, marbles: List[Marble], pos: int) -> Optional[Marble]:
+        """Find a marble by position in a given list of marbles."""
+        return next((m for m in marbles if m.pos == pos), None)
+    
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
         active_player = self.state.list_player[self.state.idx_player_active]
