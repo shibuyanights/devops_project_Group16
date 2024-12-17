@@ -226,6 +226,18 @@ class Dog(Game):
         """Return the partner's index for the given player (0 & 2 are partners, 1 & 3 are partners)."""
         return (player_idx + 2) % self.state.cnt_player
 
+
+    def get_active_and_partner_marbles(self) -> List[Marble]:
+        """Get marbles that the active player can move, including partner’s if finished."""
+        active_idx = self.state.idx_player_active
+        active_player = self.state.list_player[active_idx]
+        marbles = list(active_player.list_marble)
+        if self.is_player_finished(active_idx):
+            partner_idx = self.get_partner_index(active_idx)
+            partner = self.state.list_player[partner_idx]
+            marbles.extend(partner.list_marble)
+        return marbles
+    
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
         active_player = self.state.list_player[self.state.idx_player_active]
