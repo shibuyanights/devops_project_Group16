@@ -188,16 +188,13 @@ class Dog(Game):
 
     def is_path_blocked(self, start: int, end: int) -> bool:
         """Helper function to check blocking marbles on path"""
-        # Assuming forward moves on the main loop. Check intermediate positions for blocking marbles.
         step = 1 if end > start else -1
         for pos in range(start + step, end + step, step):
             for player in self.state.list_player:
                 for m in player.list_marble:
-                    # If a marble is on this position and is_save is True, it blocks movement.
                     if m.pos == pos and m.is_save:
                         return True
         return False
-
 
     def fold_cards(self, player: PlayerState) -> None:
         """Discard all cards in hand when no valid action is possible."""
@@ -205,7 +202,6 @@ class Dog(Game):
         player.list_card.clear()
         print(f"{player.name} folded their cards.")
         self._finalize_turn()
-
 
     def _send_marble_home(self, marble: Marble) -> None:
         """Send a marble back to its owner's kennel."""
@@ -215,13 +211,11 @@ class Dog(Game):
         marble.pos = kennel_start
         marble.is_save = False
 
-
     def _get_marble_owner(self, marble: Marble) -> int:
         for i, player in enumerate(self.state.list_player):
             if marble in player.list_marble:
                 return i
         return -1
-
 
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
@@ -243,7 +237,6 @@ class Dog(Game):
 
         return list(actions)  # Convert set back to list
 
-
     def _find_duplicate_actions(self, actions: List[Action]) -> None:
         """Detect and print duplicate actions for debugging."""
         action_counter = Counter(actions)
@@ -256,7 +249,6 @@ class Dog(Game):
             raise ValueError("Duplicate actions detected in get_list_action.")
         else:
             print("No duplicate actions found.")
-
 
     def _generate_joker_actions(self, active_player: PlayerState, card: Card, is_beginning_phase: bool) -> List[Action]:
         """Generate actions for Joker cards."""
@@ -311,7 +303,7 @@ class Dog(Game):
 
             # Check for other valid moves forward
             if 0 <= marble.pos < 64:
-                target_pos = marble.pos + 1  # A moves 1 or 11 steps
+                target_pos = marble.pos + 1  # A moves 1 or 11 steps (this is simplified)
                 if target_pos <= 63:
                     actions.append(Action(
                         card=card,
@@ -320,7 +312,6 @@ class Dog(Game):
                     ))
 
         return actions
-
 
     def _generate_jack_card_actions(self, active_player: PlayerState, card: Card) -> List[Action]:
         """Generate actions for Jack (J) cards."""
@@ -439,35 +430,24 @@ class Dog(Game):
         if winner:
             pass
 
-
     def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
         """
         Reshuffle the discard pile into the draw pile when needed.
-
-        - If the draw pile is empty, reshuffle the discard pile into the draw pile.
-        - If not enough cards are available to deal a round, reset the draw pile to a full deck.
-
-        Args:
-            cards_per_player (Optional[int]): The number of cards per player (for dealing check).
         """
         total_cards_needed = (cards_per_player * self.state.cnt_player) if cards_per_player else 0
 
-        # Scenario 1: Not enough cards to deal for a new round
         if cards_per_player and len(self.state.list_card_draw) < total_cards_needed:
             print("Not enough cards to deal. Resetting the deck.")
             self.state.list_card_draw = list(GameState.LIST_CARD)
             random.shuffle(self.state.list_card_draw)
             self.state.list_card_discard.clear()
-        # Scenario 2: Draw pile is empty; reshuffle the discard pile
         elif not self.state.list_card_draw and self.state.list_card_discard:
             print("Draw pile is empty. Reshuffling the discard pile into the draw pile.")
             self.state.list_card_draw.extend(self.state.list_card_discard)
             self.state.list_card_discard.clear()
             random.shuffle(self.state.list_card_draw)
 
-        # Optional validation to ensure card consistency
         self._validate_card_count()
-
 
     def _exchange_cards(self, player: PlayerState, action: Optional[Action]) -> None:
         # Check if action is valid
@@ -493,20 +473,11 @@ class Dog(Game):
         if self.state.idx_player_active == self.state.idx_player_started:
             self.state.bool_card_exchanged = True
 
-
-
-
-
     def _validate_card_count(self) -> None:
         """Validate that the total number of cards in the game is consistent."""
         total_cards = len(self.state.list_card_draw) + len(self.state.list_card_discard)
         for player in self.state.list_player:
             total_cards += len(player.list_card)
-
-        # Debugging: Print the breakdown of card counts
-        print(f"Draw pile: {len(self.state.list_card_draw)}, Discard pile: {len(self.state.list_card_discard)}")
-        for idx, player in enumerate(self.state.list_player):
-            print(f"Player {idx + 1} cards: {len(player.list_card)}")
 
     def _handle_no_action(self, active_player: PlayerState) -> None:
         """Handle cases where no action is provided."""
@@ -590,8 +561,6 @@ class Dog(Game):
         self._handle_round_completion()
         print(f"Round {self.state.cnt_round} started.")
 
-
-
     def _calculate_steps_used(self, action: Action) -> int:
         """Calculate the number of steps used for the SEVEN card."""
         if action.pos_to >= 76:  # Moving to finish
@@ -638,7 +607,6 @@ class Dog(Game):
         self._deal_cards(cards_per_player)
         print(f"Round {self.state.cnt_round} started with {cards_per_player} cards per player.")
 
-
     def _calculate_cards_per_round(self) -> int:
         """Calculate the number of cards to deal in the current round."""
         if 1 <= self.state.cnt_round <= 5:
@@ -656,7 +624,6 @@ class Dog(Game):
 
         self.state.list_card_draw = draw_pile  # Update remaining draw pile
 
-
     def check_victory(self) -> Optional[str]:
         """Check if any player has won the game."""
         if self.state.phase == GamePhase.FINISHED:
@@ -669,7 +636,6 @@ class Dog(Game):
                     print(f"Player {player.name} has won the game!")
                 return player.name
         return None
-
 
     def get_player_view(self, idx_player: int) -> GameState:
         """
@@ -721,7 +687,6 @@ class Dog(Game):
             'idx_player_active': self.state.idx_player_active,
         }
 
-
     def _restore_seven_card_backup(self):
         """Restore the game state from the backup if the SEVEN action was not completed."""
         if not self.seven_card_backup:
@@ -740,6 +705,7 @@ class Dog(Game):
         self.state.card_active = None
         self.steps_remaining = None
         self.seven_card_backup = None
+
 
 class RandomPlayer(Player):
 
