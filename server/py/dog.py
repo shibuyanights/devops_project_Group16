@@ -615,24 +615,7 @@ class Dog(Game):
             self.state.card_active = action.card_swap
             active_player.list_card.remove(action.card)
 
-    def _handle_jack_card(self, action: Action, active_player: PlayerState) -> None:
-        """Handle JACK card swapping of marbles."""
-        moving_marble = self._get_marble_at_position(active_player, action.pos_from)
-        opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
 
-        if moving_marble and opponent_marble:
-            moving_marble.pos, opponent_marble.pos = opponent_marble.pos, moving_marble.pos
-
-    def _handle_normal_card(self, action: Action, active_player: PlayerState) -> None:
-        """Handle normal card actions."""
-        moving_marble = self._get_marble_at_position(active_player, action.pos_from)
-        if moving_marble:
-            opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
-            if opponent_marble:
-                # Send opponent marble home properly
-                self._send_marble_home(opponent_marble)
-            moving_marble.pos = action.pos_to
-            moving_marble.is_save = True
 
     def _finalize_turn(self) -> None:
         """Move to the next player's turn or finish the round."""
