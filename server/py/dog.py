@@ -568,11 +568,11 @@ class Dog(Game):
         if moving_marble:
             opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
             if opponent_marble:
-                opponent_marble.pos = 72  # Send opponent's marble to kennel
-                opponent_marble.is_save = False
+                # Send opponent marble home properly
+                self._send_marble_home(opponent_marble)
             moving_marble.pos = action.pos_to
             moving_marble.is_save = True
-
+            
     def _finalize_turn(self) -> None:
         """Move to the next player's turn or finish the round."""
         # Clear the active card
