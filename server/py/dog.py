@@ -254,8 +254,17 @@ class Dog(Game):
         return next((m for m in marbles if m.pos == pos), None)
     
     def get_list_action(self) -> List[Action]:
-        actions = set()  # Use a set to store unique actions
+        actions = set()
         active_player = self.state.list_player[self.state.idx_player_active]
+
+        # Card exchange phase at start of round 0 (similar logic as before)
+        if not self.state.bool_card_exchanged and self.state.cnt_round == 0:
+            for c in active_player.list_card:
+                actions.add(Action(card=c, pos_from=None, pos_to=None, card_swap=None))
+            return list(actions)
+
+        # MODIFIED: If active player finished, consider both active and partner marbles
+        marbles_to_consider = self.get_active_and_partner_marbles()
 
         cards = active_player.list_card if not self.state.card_active else [self.state.card_active]
 
@@ -263,15 +272,15 @@ class Dog(Game):
 
         for card in cards:
             if card.rank == 'JKR':
-                actions.update(self._generate_joker_actions(active_player, card, is_beginning_phase))
+                actions.update(self._generate_joker_actions(active_player, card, is_beginning_phase, marbles_to_consider))  # MODIFIED
             elif card.rank in ['A', 'K']:
-                actions.update(self._generate_start_card_actions(active_player, card))
+                actions.update(self._generate_start_card_actions(active_player, card, marbles_to_consider))  # MODIFIED
             elif card.rank == 'J':
-                actions.update(self._generate_jack_card_actions(active_player, card))
+                actions.update(self._generate_jack_card_actions(active_player, card, marbles_to_consider))  # MODIFIED
             elif card.rank in {'2', '3', '5', '6', '8', '9', '10'}:
-                actions.update(self._generate_forward_move_actions(active_player, card))
+                actions.update(self._generate_forward_move_actions(active_player, card, marbles_to_consider))  # MODIFIED
 
-        return list(actions)  # Convert set back to list
+        return list(actions)
 
     def _find_duplicate_actions(self, actions: List[Action]) -> None:
         """Detect and print duplicate actions for debugging."""
