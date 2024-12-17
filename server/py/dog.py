@@ -154,8 +154,6 @@ class Dog(Game):
                 Marble(pos=(64 + i * 8 + j), is_save=(j == 0))  # Set the first marble as "is_save=True"
                 for j in range(4)
             ]
-
-            # Assign cards to the player
             player_cards = draw_pile[:6]
             draw_pile = draw_pile[6:]
 
@@ -217,6 +215,12 @@ class Dog(Game):
             if marble in player.list_marble:
                 return i
         return -1
+    
+    def is_player_finished(self, player_idx: int) -> bool:
+        """Check if a player has all marbles in the finish area."""
+        player = self.state.list_player[player_idx]
+        start_finish = 68 + 8 * player_idx
+        return all(start_finish <= m.pos <= start_finish + 3 for m in player.list_marble)
 
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
