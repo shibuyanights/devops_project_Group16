@@ -238,6 +238,16 @@ class Dog(Game):
             marbles.extend(partner.list_marble)
         return marbles
     
+    def get_active_and_partner_playerstates(self) -> List[PlayerState]:
+        """Get player states (active and partner) if active is finished, else just active player."""
+        active_idx = self.state.idx_player_active
+        active_player = self.state.list_player[active_idx]
+        if self.is_player_finished(active_idx):
+            partner_idx = self.get_partner_index(active_idx)
+            partner = self.state.list_player[partner_idx]
+            return [active_player, partner]
+        return [active_player]
+    
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
         active_player = self.state.list_player[self.state.idx_player_active]
