@@ -221,6 +221,10 @@ class Dog(Game):
         player = self.state.list_player[player_idx]
         start_finish = 68 + 8 * player_idx
         return all(start_finish <= m.pos <= start_finish + 3 for m in player.list_marble)
+    
+    def get_partner_index(self, player_idx: int) -> int:
+        """Return the partner's index for the given player (0 & 2 are partners, 1 & 3 are partners)."""
+        return (player_idx + 2) % self.state.cnt_player
 
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
