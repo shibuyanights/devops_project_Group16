@@ -431,46 +431,59 @@ class Dog(Game):
         return actions
 
     def apply_action(self, action: Optional[Action]) -> None:
-        # Handle the card exchange phase if it hasn't been completed
-        if not self.state.bool_card_exchanged:
-            active_player = self.state.list_player[self.state.idx_player_active]
-            self._exchange_cards(active_player, action)  # Handle the card exchange
-            return
-
-        # Reshuffle cards if the draw pile is empty
+        # Check if draw pile is empty and reshuffle if needed
         if not self.state.list_card_draw:
             self.reshuffle_cards()
 
-        active_player = self.state.list_player[self.state.idx_player_active]
+        if not self.state.bool_card_exchanged and self.state.cnt_round == 0:
+            active_player = self.state.list_player[self.state.idx_player_active]
+            if action is None or action.card not in active_player.list_card:
+                print("Invalid action: Card exchange requires choosing one of your cards.")
+                return
+            chosen_card = action.card
+            active_player.list_card.remove(chosen_card)
+            self.card_exchange_buffer[self.state.idx_player_active] = chosen_card
+            self.state.idx_player_active = (self.state.idx_player_active + 1) % self.state.cnt_player
 
-        # Handle when no action is provided
+            if all(c is not None for c in self.card_exchange_buffer):
+                for i in range(self.state.cnt_player):
+                    partner_idx = (i + 2) % self.state.cnt_player
+                    self.state.list_player[i].list_card.append(self.card_exchange_buffer[partner_idx])
+                self.card_exchange_buffer = [None, None, None, None]
+                self.state.bool_card_exchanged = True
+                self.state.idx_player_active = self.state.idx_player_started
+            return
+
+        if not self.state.list_card_draw:
+            self.reshuffle_cards()
+
+        active_player_idx = self.state.idx_player_active
+        active_player = self.state.list_player[active_player_idx]
+
+        # ADDED: If player finished, consider marbles of partner too
+        marbles_to_consider = self.get_active_and_partner_marbles()
+
         if action is None:
             self._handle_no_action(active_player)
             return
 
-        # Handle specific card actions
+        # Instead of just active_player marbles, use marbles_to_consider
         if action.card.rank == '7':
             self._handle_seven_card(action, active_player)
         elif action.card.rank == 'JKR':
-            # Handle JOKER card
             if action.card_swap:
-                # Remove the JOKER card from the player's hand
                 active_player.list_card.remove(action.card)
-
-                # Set the swapped card as the active card
                 self.state.card_active = action.card_swap
                 print(f"JOKER played: Active card is now {self.state.card_active}.")
                 return
         elif action.card.rank == 'J':
-            self._handle_jack_card(action, active_player)
+            self._handle_jack_card_in_apply(action, active_player, marbles_to_consider)  # ADDED helper call
         else:
-            self._handle_normal_card(action, active_player)
+            self._handle_normal_card_in_apply(action, active_player, marbles_to_consider)  # ADDED helper call
 
-        # Finalize turn if no steps are remaining
         if self.steps_remaining is None:
             self._finalize_turn()
 
-        # Check for victory after the action
         winner = self.check_victory()
         if winner:
             pass
