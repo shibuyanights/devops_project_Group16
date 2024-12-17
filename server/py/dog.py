@@ -216,6 +216,13 @@ class Dog(Game):
         marble.is_save = False
 
 
+    def _get_marble_owner(self, marble: Marble) -> int:
+        for i, player in enumerate(self.state.list_player):
+            if marble in player.list_marble:
+                return i
+        return -1
+
+
     def get_list_action(self) -> List[Action]:
         actions = set()  # Use a set to store unique actions
         active_player = self.state.list_player[self.state.idx_player_active]
