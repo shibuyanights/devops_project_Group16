@@ -690,16 +690,6 @@ class Dog(Game):
             card_active=self.state.card_active,
         )
 
-
-    def _send_marble_home(self, marble: Marble) -> None:
-        """Send a marble back to its owner's kennel."""
-        owner_idx = self._get_marble_owner(marble)
-        # Owner kennel starts at 64 + owner_idx*8
-        kennel_start = 64 + owner_idx * 8
-        marble.pos = kennel_start
-        marble.is_save = False
-
-
     def _create_seven_card_backup(self):
         """Create a backup of the current state before starting SEVEN card moves."""
         return {
