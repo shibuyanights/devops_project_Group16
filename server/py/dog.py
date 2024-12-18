@@ -121,12 +121,15 @@ class GameState(BaseModel):
 
 
 class Dog(Game):
+    state: GameState
+
     def __init__(self) -> None:
         self.steps_remaining: Optional[int] = None
         self.seven_card_backup: Optional[Dict[str, Any]] = None
         self.card_exchange_buffer: List[Optional[Card]] = [
             None, None, None, None
         ]
+
         self.reset()
 
     def reset(self) -> None:
@@ -136,7 +139,7 @@ class Dog(Game):
         players: List[PlayerState] = []
         for i in range(4):
             marbles: List[Marble] = [
-                Marble(pos=(64 + i * 8 + j), is_save=(j == 0))
+                Marble(pos=(64 + i * 8 + j), is_save=j == 0)
                 for j in range(4)
             ]
             player_cards: List[Card] = draw_pile[:6]
@@ -288,7 +291,7 @@ class Dog(Game):
             raise ValueError("Duplicate actions detected in get_list_action.")
 
     def _generate_joker_actions(
-        self, active_player: PlayerState, card: Card,
+        self, _active_player: PlayerState, card: Card,
         is_beginning_phase: bool, marbles_to_consider: List[Marble]
     ) -> List[Action]:
         actions = []
@@ -318,7 +321,7 @@ class Dog(Game):
 
 
     def _generate_start_card_actions(
-        self, active_player: PlayerState, card: Card,
+        self, _active_player: PlayerState, card: Card,
         marbles_to_consider: List[Marble]
     ) -> List[Action]:
         actions = []
@@ -346,61 +349,48 @@ class Dog(Game):
         return actions
 
     def _generate_jack_card_actions(
-        self, active_player: PlayerState, card: Card,
+        self, _active_player: PlayerState, card: Card,
         marbles_to_consider: List[Marble]
     ) -> List[Action]:
         actions = []
         found_valid_target = False
-        for marble in marbles_to_consider:
-            if marble.pos < 64:
-                for opponent in self.state.list_player:
-                    if opponent not in self.get_active_and_partner_playerstates():
-                        for opp_marble in opponent.list_marble:
-                            if not opp_marble.is_save and opp_marble.pos < 64:
-                                found_valid_target = True
-                                actions.append(
-                                    Action(
-                                        card=card,
-                                        pos_from=marble.pos,
-                                        pos_to=opp_marble.pos,
-                                        card_swap=None
-                                    )
-                                )
-                                actions.append(
-                                    Action(
-                                        card=card,
-                                        pos_from=opp_marble.pos,
-                                        pos_to=marble.pos,
-                                        card_swap=None
-                                    )
-                                )
 
+        # Check actions with opponent marbles
+        for marble in marbles_to_consider:
+            if marble.pos >= 64:  # Skip marbles already home
+                continue
+            for opponent in self.state.list_player:
+                if opponent in self.get_active_and_partner_playerstates():
+                    continue
+                for opp_marble in opponent.list_marble:
+                    if opp_marble.is_save or opp_marble.pos >= 64:
+                        continue
+                    # Valid target found
+                    found_valid_target = True
+                    actions.append(Action(
+                        card=card, pos_from=marble.pos, pos_to=opp_marble.pos
+                    ))
+                    actions.append(Action(
+                        card=card, pos_from=opp_marble.pos, pos_to=marble.pos
+                    ))
+
+        # If no valid targets, generate fallback actions
         if not found_valid_target:
-            marbles_on_board = [
-                m for m in marbles_to_consider if m.pos < 64
-            ]
-            for i in range(len(marbles_on_board)):
-                for j in range(i + 1, len(marbles_on_board)):
-                    actions.append(
-                        Action(
-                            card=card,
-                            pos_from=marbles_on_board[i].pos,
-                            pos_to=marbles_on_board[j].pos,
-                            card_swap=None
-                        )
-                    )
-                    actions.append(
-                        Action(
-                            card=card,
-                            pos_from=marbles_on_board[j].pos,
-                            pos_to=marbles_on_board[i].pos,
-                            card_swap=None
-                        )
-                    )
+            marbles_on_board = [m for m in marbles_to_consider if m.pos < 64]
+            for i, marble_a in enumerate(marbles_on_board):
+                for marble_b in marbles_on_board[i + 1:]:
+                    actions.append(Action(
+                        card=card, pos_from=marble_a.pos, pos_to=marble_b.pos
+                    ))
+                    actions.append(Action(
+                        card=card, pos_from=marble_b.pos, pos_to=marble_a.pos
+                    ))
+
         return actions
 
+
     def _generate_forward_move_actions(
-        self, active_player: PlayerState, card: Card,
+        self, _active_player: PlayerState, card: Card,
         marbles_to_consider: List[Marble]
     ) -> List[Action]:
         actions = []
@@ -424,8 +414,7 @@ class Dog(Game):
         return actions
 
     def apply_action(self, action: Optional[Action]) -> None:
-        if not self.state.list_card_draw:
-            self.reshuffle_cards()
+        self._ensure_cards_available()
 
         if not self.state.bool_card_exchanged and self.state.cnt_round == 0:
             active_player = self.state.list_player[self.state.idx_player_active]
@@ -489,12 +478,29 @@ class Dog(Game):
         if self.steps_remaining is None:
             self._finalize_turn()
 
+        self.check_and_handle_victory()
+
+    def _ensure_cards_available(self) -> None:
+        if not self.state.list_card_draw:
+            self.reshuffle_cards()
+
+
+
+
+    def check_and_handle_victory(self) -> None:
+        """
+        Checks for a winner and handles game state if victory is detected.
+        """
         winner = self.check_victory()
         if winner:
-            pass
+            print("Victory detected!")  # Add any victory handling logic here
+
+
+
+
 
     def _handle_jack_card_in_apply(
-        self, action: Action, active_player: PlayerState,
+        self, action: Action, _active_player: PlayerState,
         marbles_to_consider: List[Marble]
     ) -> None:
         moving_marble = self._find_marble_by_pos(
@@ -517,7 +523,7 @@ class Dog(Game):
             )
 
     def _handle_normal_card_in_apply(
-        self, action: Action, active_player: PlayerState,
+        self, action: Action, _active_player: PlayerState,
         marbles_to_consider: List[Marble]
     ) -> None:
         moving_marble = self._find_marble_by_pos(
@@ -581,17 +587,17 @@ class Dog(Game):
     def _handle_no_action(self, active_player: PlayerState) -> None:
         print("No action provided; skipping turn or reshuffling cards.")
         if (
-            self.state.card_active and
-            self.state.card_active.rank == '7' and
-            self.steps_remaining is not None
+            self.state.card_active
+            and self.state.card_active.rank == '7'
+            and self.steps_remaining is not None
         ):
             self._restore_seven_card_backup()
             return
+
+        if self.state.card_active and self.state.card_active.rank == '7':
+            self._finalize_turn()
         else:
-            if self.state.card_active and self.state.card_active.rank == '7':
-                self._finalize_turn()
-            else:
-                self.fold_cards(active_player)
+            self.fold_cards(active_player)
 
     def _handle_seven_card(
         self, action: Action, active_player: PlayerState
@@ -686,14 +692,17 @@ class Dog(Game):
 
         if pos_from < 64 and pos_to < 64:
             return (pos_to - pos_from) % 64
-        elif pos_from < 64 and pos_to >= finish_start:
+
+        if pos_from < 64 and pos_to >= finish_start:
             steps_on_board = (start_pos - pos_from) % 64
             steps_in_finish = (pos_to - finish_start) + 1
             return steps_on_board + steps_in_finish
-        elif pos_from >= 64 and pos_to >= 64:
+
+        if pos_from >= 64 and pos_to >= 64:
             return abs(pos_to - pos_from)
-        else:
-            return abs(pos_to - pos_from)
+
+        return abs(pos_to - pos_from)
+
 
     def _handle_intermediate_positions(
         self, action: Action, moving_marble: Marble,
@@ -762,13 +771,15 @@ class Dog(Game):
 
     def check_victory(self) -> Optional[str]:
         if self.state.phase == GamePhase.FINISHED:
-            return None
+            return "Game already finished"
+
         for player in self.state.list_player:
             if all(76 <= marble.pos <= 95 for marble in player.list_marble):
-                if self.state.phase != GamePhase.FINISHED:
-                    self.state.phase = GamePhase.FINISHED
-                pass
+                self.state.phase = GamePhase.FINISHED
+                return f"Player {player.name} has won!"
+
         return None
+
 
     def get_player_view(self, idx_player: int) -> GameState:
         masked_players: List[PlayerState] = []
