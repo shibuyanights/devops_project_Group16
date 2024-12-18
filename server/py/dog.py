@@ -846,3 +846,4 @@ if __name__ == '__main__':
     game = Dog()
     game.start_new_round()
     game.print_state()
+    
