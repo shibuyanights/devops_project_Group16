@@ -21,3 +21,11 @@ EXPOSE 8080
 
 # Use "uvicorn" to start FastAPI service from main.py on exposed port
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+
+
+
+
+reached points / max points * 5 + 1
+80 / 121 * 5 + 1
+
+90 105
