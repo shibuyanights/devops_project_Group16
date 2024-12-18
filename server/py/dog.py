@@ -31,7 +31,6 @@ class Card(BaseModel):
         return hash((self.suit, self.rank))
 
 
-
 class Marble(BaseModel):
     pos: int
     is_save: bool
@@ -49,17 +48,20 @@ class Action(BaseModel):
     pos_to: Optional[int] = None
     card_swap: Optional[Card] = None
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.card, self.pos_from, self.pos_to, self.card_swap))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Action):
             return False
+        other_action = other
+        if not isinstance(other_action, Action):
+            return False
         return (
-            self.card == other.card
-            and self.pos_from == other.pos_from
-            and self.pos_to == other.pos_to
-            and self.card_swap == other.card_swap
+            self.card == other_action.card
+            and self.pos_from == other_action.pos_from
+            and self.pos_to == other_action.pos_to
+            and self.card_swap == other_action.card_swap
         )
 
 
@@ -107,22 +109,22 @@ class GameState(BaseModel):
 class Dog(Game):
 
     def __init__(self) -> None:
-        self.steps_remaining = None
-        self.seven_card_backup = None
-        self.card_exchange_buffer = [None, None, None, None]
+        self.steps_remaining: Optional[int] = None
+        self.seven_card_backup: Optional[Dict[str, Any]] = None
+        self.card_exchange_buffer: List[Optional[Card]] = [None, None, None, None]
         self.reset()
 
     def reset(self) -> None:
-        draw_pile = list(GameState.LIST_CARD)
+        draw_pile: List[Card] = list(GameState.LIST_CARD)
         random.shuffle(draw_pile)
 
-        players = []
+        players: List[PlayerState] = []
         for i in range(4):
-            marbles = [
+            marbles: List[Marble] = [
                 Marble(pos=(64 + i * 8 + j), is_save=(j == 0))
                 for j in range(4)
             ]
-            player_cards = draw_pile[:6]
+            player_cards: List[Card] = draw_pile[:6]
             draw_pile = draw_pile[6:]
             players.append(PlayerState(
                 name=f"Player {i + 1}",
@@ -130,7 +132,7 @@ class Dog(Game):
                 list_marble=marbles
             ))
 
-        self.state = GameState(
+        self.state: GameState = GameState(
             cnt_player=4,
             phase=GamePhase.RUNNING,
             cnt_round=1,
@@ -179,19 +181,15 @@ class Dog(Game):
                 return i
         return -1
 
-    # ADDED START
     def is_player_finished(self, player_idx: int) -> bool:
-        """Check if a player has all marbles in the finish area."""
         player = self.state.list_player[player_idx]
         start_finish = 68 + 8 * player_idx
         return all(start_finish <= m.pos <= start_finish + 3 for m in player.list_marble)
 
     def get_partner_index(self, player_idx: int) -> int:
-        """Return the partner's index for the given player (0 & 2 are partners, 1 & 3 are partners)."""
         return (player_idx + 2) % self.state.cnt_player
 
     def get_active_and_partner_marbles(self) -> List[Marble]:
-        """Get marbles that the active player can move, including partner’s if finished."""
         active_idx = self.state.idx_player_active
         active_player = self.state.list_player[active_idx]
         marbles = list(active_player.list_marble)
@@ -202,7 +200,6 @@ class Dog(Game):
         return marbles
 
     def get_active_and_partner_playerstates(self) -> List[PlayerState]:
-        """Get player states (active and partner) if active is finished, else just active player."""
         active_idx = self.state.idx_player_active
         active_player = self.state.list_player[active_idx]
         if self.is_player_finished(active_idx):
@@ -212,36 +209,31 @@ class Dog(Game):
         return [active_player]
 
     def _find_marble_by_pos(self, marbles: List[Marble], pos: int) -> Optional[Marble]:
-        """Find a marble by position in a given list of marbles."""
         return next((m for m in marbles if m.pos == pos), None)
-    # ADDED END
 
     def get_list_action(self) -> List[Action]:
-        actions = set()
+        actions: Set[Action] = set()
         active_player = self.state.list_player[self.state.idx_player_active]
 
-        # Card exchange phase at start of round 0 (similar logic as before)
         if not self.state.bool_card_exchanged and self.state.cnt_round == 0:
             for c in active_player.list_card:
                 actions.add(Action(card=c, pos_from=None, pos_to=None, card_swap=None))
             return list(actions)
 
-        # MODIFIED: If active player finished, consider both active and partner marbles
         marbles_to_consider = self.get_active_and_partner_marbles()
-
         cards = active_player.list_card if not self.state.card_active else [self.state.card_active]
 
         is_beginning_phase = all(marble.pos >= 64 for marble in active_player.list_marble)
 
         for card in cards:
             if card.rank == 'JKR':
-                actions.update(self._generate_joker_actions(active_player, card, is_beginning_phase, marbles_to_consider))  # MODIFIED
+                actions.update(self._generate_joker_actions(active_player, card, is_beginning_phase, marbles_to_consider))
             elif card.rank in ['A', 'K']:
-                actions.update(self._generate_start_card_actions(active_player, card, marbles_to_consider))  # MODIFIED
+                actions.update(self._generate_start_card_actions(active_player, card, marbles_to_consider))
             elif card.rank == 'J':
-                actions.update(self._generate_jack_card_actions(active_player, card, marbles_to_consider))  # MODIFIED
+                actions.update(self._generate_jack_card_actions(active_player, card, marbles_to_consider))
             elif card.rank in {'2', '3', '5', '6', '8', '9', '10'}:
-                actions.update(self._generate_forward_move_actions(active_player, card, marbles_to_consider))  # MODIFIED
+                actions.update(self._generate_forward_move_actions(active_player, card, marbles_to_consider))
 
         return list(actions)
 
@@ -255,8 +247,6 @@ class Dog(Game):
             raise ValueError("Duplicate actions detected in get_list_action.")
         else:
             print("No duplicate actions found.")
-
-    # MODIFIED methods below to accept marbles_to_consider
 
     def _generate_joker_actions(self, active_player: PlayerState, card: Card, is_beginning_phase: bool, marbles_to_consider: List[Marble]) -> List[Action]:
         actions = []
