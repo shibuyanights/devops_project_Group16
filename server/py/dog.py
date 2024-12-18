@@ -493,7 +493,7 @@ class Dog(Game):
         """
         winner = self.check_victory()
         if winner:
-            print("Victory detected!")  # Add any victory handling logic here
+            pass
 
 
 
@@ -841,7 +841,6 @@ class RandomPlayer(Player):
         if len(actions) > 0:
             return random.choice(actions)
         return None
-
 
 if __name__ == '__main__':
     game = Dog()
