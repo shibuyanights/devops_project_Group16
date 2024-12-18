@@ -306,7 +306,6 @@ class Dog(Game):
         found_valid_target = False
         for marble in marbles_to_consider:
             if marble.pos < 64:
-                # Consider opponents outside of active & partner
                 for opponent in self.state.list_player:
                     if opponent not in self.get_active_and_partner_playerstates():
                         for opp_marble in opponent.list_marble:
@@ -326,7 +325,6 @@ class Dog(Game):
                                 ))
 
         if not found_valid_target:
-            # If no valid target found among opponents, try swapping among own/partner marbles
             marbles_on_board = [m for m in marbles_to_consider if m.pos < 64]
             for i in range(len(marbles_on_board)):
                 for j in range(i + 1, len(marbles_on_board)):
@@ -365,7 +363,6 @@ class Dog(Game):
         return actions
 
     def apply_action(self, action: Optional[Action]) -> None:
-        # Check if draw pile is empty and reshuffle if needed
         if not self.state.list_card_draw:
             self.reshuffle_cards()
 
@@ -382,10 +379,13 @@ class Dog(Game):
             if all(c is not None for c in self.card_exchange_buffer):
                 for i in range(self.state.cnt_player):
                     partner_idx = (i + 2) % self.state.cnt_player
-                    self.state.list_player[i].list_card.append(self.card_exchange_buffer[partner_idx])
+                    # Safely cast to Card since all values are checked not to be None
+                    card_to_add = cast(Card, self.card_exchange_buffer[partner_idx])
+                    self.state.list_player[i].list_card.append(card_to_add)
                 self.card_exchange_buffer = [None, None, None, None]
                 self.state.bool_card_exchanged = True
                 self.state.idx_player_active = self.state.idx_player_started
+
             return
 
         if not self.state.list_card_draw:
@@ -394,14 +394,12 @@ class Dog(Game):
         active_player_idx = self.state.idx_player_active
         active_player = self.state.list_player[active_player_idx]
 
-        # ADDED: If player finished, consider marbles of partner too
         marbles_to_consider = self.get_active_and_partner_marbles()
 
         if action is None:
             self._handle_no_action(active_player)
             return
 
-        # Instead of just active_player marbles, use marbles_to_consider
         if action.card.rank == '7':
             self._handle_seven_card(action, active_player)
         elif action.card.rank == 'JKR':
@@ -411,9 +409,9 @@ class Dog(Game):
                 print(f"JOKER played: Active card is now {self.state.card_active}.")
                 return
         elif action.card.rank == 'J':
-            self._handle_jack_card_in_apply(action, active_player, marbles_to_consider)  # ADDED helper call
+            self._handle_jack_card_in_apply(action, active_player, marbles_to_consider)
         else:
-            self._handle_normal_card_in_apply(action, active_player, marbles_to_consider)  # ADDED helper call
+            self._handle_normal_card_in_apply(action, active_player, marbles_to_consider)
 
         if self.steps_remaining is None:
             self._finalize_turn()
@@ -422,45 +420,38 @@ class Dog(Game):
         if winner:
             pass
 
-    # ADDED these two helper methods to handle jack/normal cards in apply_action using marbles_to_consider
     def _handle_jack_card_in_apply(self, action: Action, active_player: PlayerState, marbles_to_consider: List[Marble]) -> None:
-        moving_marble = self._find_marble_by_pos(marbles_to_consider, action.pos_from)
-        opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
-        if not opponent_marble:
-            # Check if pos_to belongs to marbles_to_consider as well (in case of swapping with partner)
+        moving_marble = self._find_marble_by_pos(marbles_to_consider, action.pos_from) if action.pos_from is not None else None
+        opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to) if action.pos_to is not None else None
+        if not opponent_marble and action.pos_to is not None:
             opponent_marble = next((m for m in marbles_to_consider if m.pos == action.pos_to), None)
 
         if moving_marble and opponent_marble:
             moving_marble.pos, opponent_marble.pos = opponent_marble.pos, moving_marble.pos
 
     def _handle_normal_card_in_apply(self, action: Action, active_player: PlayerState, marbles_to_consider: List[Marble]) -> None:
-        moving_marble = self._find_marble_by_pos(marbles_to_consider, action.pos_from)
+        moving_marble = self._find_marble_by_pos(marbles_to_consider, action.pos_from) if action.pos_from is not None else None
         if moving_marble:
-            opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
-            if not opponent_marble:
-                # Check partner marbles if needed
+            opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to) if action.pos_to is not None else None
+            if not opponent_marble and action.pos_to is not None:
                 partner_marble = next((m for m in marbles_to_consider if m.pos == action.pos_to and m != moving_marble), None)
                 if partner_marble:
                     opponent_marble = partner_marble
             if opponent_marble:
                 self._send_marble_home(opponent_marble)
-            moving_marble.pos = action.pos_to
-            moving_marble.is_save = True
+            if action.pos_to is not None:
+                moving_marble.pos = action.pos_to
+                moving_marble.is_save = True
 
     def reshuffle_cards(self, cards_per_player: Optional[int] = None) -> None:
-        # Calculate how many cards are needed
         total_cards_needed = (cards_per_player * self.state.cnt_player) if cards_per_player else 0
 
-        # If we specifically need a certain number of cards and we don't have enough,
-        # or if draw pile is empty, try to refill.
         while (cards_per_player and len(self.state.list_card_draw) < total_cards_needed) or (not self.state.list_card_draw):
             if self.state.list_card_discard:
-                # If we have discarded cards, move them to the draw pile and shuffle
                 self.state.list_card_draw.extend(self.state.list_card_discard)
                 self.state.list_card_discard.clear()
                 random.shuffle(self.state.list_card_draw)
             else:
-                # No discard pile available, restore the original deck
                 self.state.list_card_draw = list(GameState.LIST_CARD)
                 random.shuffle(self.state.list_card_draw)
                 self.state.list_card_discard.clear()
@@ -493,8 +484,8 @@ class Dog(Game):
         if steps_used > self.steps_remaining:
             raise ValueError("Exceeded remaining steps for SEVEN.")
 
-        moving_marble = self._get_marble_at_position(active_player, action.pos_from)
-        if moving_marble:
+        moving_marble = self._get_marble_at_position(active_player, action.pos_from) if action.pos_from is not None else None
+        if moving_marble and action.pos_to is not None:
             self._handle_intermediate_positions(action, moving_marble, active_player)
             moving_marble.pos = action.pos_to
             self.steps_remaining -= steps_used
@@ -510,19 +501,15 @@ class Dog(Game):
             self.state.card_active = action.card_swap
             active_player.list_card.remove(action.card)
 
-    # Note: The original _handle_jack_card and _handle_normal_card methods remain unchanged
-    # because now we have separate methods in apply_action that handle marbles_to_consider.
-    # The original code used these methods in a different context (like a previous version of code).
-    # Since the user requested no removals, we keep them here, but they may not be called anymore.
     def _handle_jack_card(self, action: Action, active_player: PlayerState) -> None:
-        moving_marble = self._get_marble_at_position(active_player, action.pos_from)
-        opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
+        moving_marble = self._get_marble_at_position(active_player, action.pos_from) if action.pos_from is not None else None
+        opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to) if action.pos_to is not None else None
         if moving_marble and opponent_marble:
             moving_marble.pos, opponent_marble.pos = opponent_marble.pos, moving_marble.pos
 
     def _handle_normal_card(self, action: Action, active_player: PlayerState) -> None:
-        moving_marble = self._get_marble_at_position(active_player, action.pos_from)
-        if moving_marble:
+        moving_marble = self._get_marble_at_position(active_player, action.pos_from) if action.pos_from is not None else None
+        if moving_marble and action.pos_to is not None:
             opponent_marble = self._get_marble_at_position_of_opponent(action.pos_to)
             if opponent_marble:
                 self._send_marble_home(opponent_marble)
@@ -550,35 +537,34 @@ class Dog(Game):
             return 0
 
         if pos_from < 64 and pos_to < 64:
-            # On the board
             return (pos_to - pos_from) % 64
         elif pos_from < 64 and pos_to >= finish_start:
-            # Moving into finish lane
             steps_on_board = (start_pos - pos_from) % 64
             steps_in_finish = (pos_to - finish_start) + 1
             return steps_on_board + steps_in_finish
         elif pos_from >= 64 and pos_to >= 64:
-            # Within finish lane
             return abs(pos_to - pos_from)
         else:
-            # Any other scenario (unlikely with given rules)
             return abs(pos_to - pos_from)
 
     def _handle_intermediate_positions(self, action: Action, moving_marble: Marble, active_player: PlayerState) -> None:
-        for pos in range(action.pos_from + 1, action.pos_to + 1):
-            opponent_marble = self._get_marble_at_position_of_opponent(pos)
-            if opponent_marble:
-                self._send_marble_home(opponent_marble)
-                break
-            own_marble = self._get_marble_at_position(active_player, pos)
-            if own_marble and own_marble != moving_marble:
-                self._send_marble_home(own_marble)
-                break
+        if action.pos_from is not None and action.pos_to is not None:
+            for pos in range(action.pos_from + 1, action.pos_to + 1):
+                opponent_marble = self._get_marble_at_position_of_opponent(pos)
+                if opponent_marble:
+                    self._send_marble_home(opponent_marble)
+                    break
+                own_marble = self._get_marble_at_position(active_player, pos)
+                if own_marble and own_marble != moving_marble:
+                    self._send_marble_home(own_marble)
+                    break
 
     def _get_marble_at_position(self, player: PlayerState, position: int) -> Optional[Marble]:
         return next((m for m in player.list_marble if m.pos == position), None)
 
-    def _get_marble_at_position_of_opponent(self, position: int) -> Optional[Marble]:
+    def _get_marble_at_position_of_opponent(self, position: Optional[int]) -> Optional[Marble]:
+        if position is None:
+            return None
         for player in self.state.list_player:
             for marble in player.list_marble:
                 if marble.pos == position:
@@ -591,7 +577,6 @@ class Dog(Game):
         self.state.idx_player_started = (self.state.idx_player_started + 1) % self.state.cnt_player
         cards_per_player = self._calculate_cards_per_round()
 
-        # Ensure enough cards are available before dealing
         self.reshuffle_cards(cards_per_player)
         self._deal_cards(cards_per_player)
         print(f"Round {self.state.cnt_round} started with {cards_per_player} cards per player.")
@@ -606,7 +591,7 @@ class Dog(Game):
         draw_pile = self.state.list_card_draw
         for player in self.state.list_player:
             for _ in range(cards_per_player):
-                if not draw_pile:  # If empty, reshuffle or restore again
+                if not draw_pile:
                     self.reshuffle_cards(cards_per_player)
                 card = draw_pile.pop()
                 player.list_card.append(card)
@@ -623,7 +608,7 @@ class Dog(Game):
         return None
 
     def get_player_view(self, idx_player: int) -> GameState:
-        masked_players = []
+        masked_players: List[PlayerState] = []
         for idx, player in enumerate(self.state.list_player):
             if idx == idx_player:
                 masked_players.append(player)
@@ -648,7 +633,7 @@ class Dog(Game):
             card_active=self.state.card_active,
         )
 
-    def _create_seven_card_backup(self):
+    def _create_seven_card_backup(self) -> Dict[str, Any]:
         return {
             'marbles': [
                 (player_idx, marble_idx, marble.pos, marble.is_save)
@@ -664,14 +649,14 @@ class Dog(Game):
             'idx_player_active': self.state.idx_player_active,
         }
 
-    def _restore_seven_card_backup(self):
+    def _restore_seven_card_backup(self) -> None:
         if not self.seven_card_backup:
             return
+        for player_idx, card_list in self.seven_card_backup['card_hands']:
+            self.state.list_player[player_idx].list_card = card_list
         for player_idx, marble_idx, pos, is_save in self.seven_card_backup['marbles']:
             self.state.list_player[player_idx].list_marble[marble_idx].pos = pos
             self.state.list_player[player_idx].list_marble[marble_idx].is_save = is_save
-        for player_idx, card_list in self.seven_card_backup['card_hands']:
-            self.state.list_player[player_idx].list_card = card_list
         self.state.card_active = None
         self.steps_remaining = None
         self.seven_card_backup = None
