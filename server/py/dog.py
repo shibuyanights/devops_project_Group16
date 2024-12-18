@@ -1,8 +1,9 @@
 from __future__ import annotations  # Enables forward references for type hints
 from collections import Counter
 import random
+from typing import cast
 from enum import Enum
-from typing import List, Optional, ClassVar
+from typing import List, Optional, ClassVar, Dict, Any, Set
 from pydantic import BaseModel
 from server.py.game import Game, Player
 import sys
@@ -13,21 +14,22 @@ class Card(BaseModel):
     suit: str
     rank: str
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, Card):
             return NotImplemented
         return str(self) < str(other)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Card):
             return NotImplemented
         return self.suit == other.suit and self.rank == other.rank
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.suit}{self.rank}"
 
     def __hash__(self) -> int:
         return hash((self.suit, self.rank))
+
 
 
 class Marble(BaseModel):
