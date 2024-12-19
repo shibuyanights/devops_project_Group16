@@ -11,7 +11,7 @@ COPY ./requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Copy all source code from "/src" to the image
-COPY ./src /code/src
+COPY ./server /code/server
 
 # Extend "PYTHONPATH" to reference code outside main.py
 ENV PYTHONPATH="$PATH:/code"
@@ -20,4 +20,4 @@ ENV PYTHONPATH="$PATH:/code"
 EXPOSE 8080
 
 # Use "uvicorn" to start FastAPI service from main.py on exposed port
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "server.py.main:app", "--host", "0.0.0.0", "--port", "8080"]
